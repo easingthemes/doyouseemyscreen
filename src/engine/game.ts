@@ -1,9 +1,9 @@
 import {
   AMMO,
-  CALLOUT,
   GRID,
   LAUNCH,
   ROUND_SECONDS,
+  NOTICE,
   SELF_HIT_PENALTY,
   SUSPICION,
 } from './constants';
@@ -41,22 +41,6 @@ const BUZZ = [
   'let me share my screen real quick',
 ];
 
-const QUESTIONS = [
-  'what do you think?',
-  'you were closest to this — any update?',
-  'can you walk us through your part?',
-  'do you have numbers on that?',
-  'sorry, you have been quiet — thoughts?',
-  'does that timeline work on your side?',
-];
-
-const ANSWERS = [
-  'yeah, sorry — I think we should circle back on that.',
-  'agreed, I will take that as an action item.',
-  'we are mostly on track, a couple of blockers.',
-  'good question, let me follow up offline.',
-];
-
 const DROP_TABLE: { ammo: AmmoId; weight: number; reason: string }[] = [
   { ammo: 'postit', weight: 3, reason: 'You found a Post-it block in the drawer' },
   { ammo: 'banana', weight: 2, reason: 'Leftover banana from breakfast' },
@@ -89,8 +73,6 @@ export function createGame(
     participants: [],
     playerId: 'player',
     suspicion: 0,
-    callout: null,
-    nextCalloutAt: 10,
     endReason: null,
     speakerId: null,
     nextSpeakerAt: 1.5,
@@ -132,7 +114,7 @@ export function createGame(
   state.wind.fanPhase = range(state, 0, Math.PI * 2);
   state.layout = computeLayout(state.participants, state.speakerId, false);
   log(state, `${company.name}: meeting started. Nobody knows why.`);
-  log(state, 'Camera and mic are off. Keep them off to throw.', 'system');
+  log(state, 'Your camera is off. Nobody is looking at you yet.', 'system');
   return state;
 }
 
@@ -255,65 +237,67 @@ function updateMeeting(state: GameState, dt: number) {
   }
 }
 
+/** The part of the risk that is settled before you let go. */
+function baseNotice(state: GameState, ammo: AmmoId): number {
+  const me = player(state);
+  const witnesses = state.participants.filter((p) => !p.isPlayer && p.cameraOn).length;
+  let chance = NOTICE.base + AMMO[ammo].conspicuous + witnesses * NOTICE.perWitness;
+  if (me.cameraOn) chance += NOTICE.onCamera;
+  if (me.micOn) chance += NOTICE.onMic;
+  return chance;
+}
+
 /**
- * Somebody turns to you and waits. Get camera and mic on inside the window and
- * hold it for a beat; ignore it and the room notices. Throwing is impossible
- * while you are live, so every answer costs you the good part of the meeting.
+ * What the heads-up display shows: the odds for a throw that lands on
+ * somebody, which is what the player is actually deciding about. Missing
+ * everyone is quieter, and hitting whoever holds the floor is louder, but
+ * those are only known once it lands.
+ */
+export function plannedRisk(state: GameState, ammo: AmmoId): number {
+  return Math.max(0, Math.min(NOTICE.cap, baseNotice(state, ammo)));
+}
+
+/** Odds that a throw gets traced back to you, once it has landed. */
+export function noticeChance(
+  state: GameState,
+  ammo: AmmoId,
+  target: Participant | null,
+): number {
+  let chance = baseNotice(state, ammo);
+  if (target) {
+    if (state.speakerId === target.id) chance += NOTICE.speakingTarget;
+    if (target.cameraOn) chance += NOTICE.targetVisible;
+  } else {
+    // Nothing hit anybody: far less to go on.
+    chance *= NOTICE.missFactor;
+  }
+  return Math.max(0, Math.min(NOTICE.cap, chance));
+}
+
+/** Roll for it, and say who worked it out. */
+function rollNotice(state: GameState, ammo: AmmoId, target: Participant | null) {
+  if (!chance(state, noticeChance(state, ammo, target))) return;
+  addSuspicion(state, SUSPICION.noticed);
+  const others = state.participants.filter((p) => !p.isPlayer);
+  const witness = others.length > 0 ? pick(state, others) : null;
+  const me = player(state);
+  log(
+    state,
+    me.cameraOn
+      ? `${witness?.name ?? 'Someone'} watched you throw that.`
+      : `${witness?.name ?? 'Someone'}: ...did somebody just throw something?`,
+    'hit',
+  );
+}
+
+/**
+ * Suspicion only ever falls, and only while you are visibly present. Sitting
+ * there on camera is the one way to clear what the room has already noticed —
+ * and it is also when throwing is most likely to be traced straight back.
  */
 function updateSelf(state: GameState, dt: number) {
   const me = player(state);
-  const live = me.cameraOn && me.micOn;
-  const callout = state.callout;
-
-  if (callout) {
-    if (callout.answeredAt === null) {
-      if (live) {
-        callout.answeredAt = state.t;
-        callout.holdUntil = state.t + CALLOUT.hold;
-        state.speakerId = me.id;
-        me.lastSpokeAt = state.t;
-        log(state, `${me.name}: ${pick(state, ANSWERS)}`, 'chat');
-      } else if (me.cameraOn && !me.micOn) {
-        // Classic. Costs nothing but the clock keeps running.
-        if (chance(state, dt * 1.5)) log(state, `${callout.askerName}: you are on mute.`, 'chat');
-      }
-      if (state.t >= callout.deadline && callout.answeredAt === null) {
-        addSuspicion(state, SUSPICION.ignoredCallout);
-        log(state, `${callout.askerName}: ...are you there? Let's move on.`, 'chat');
-        state.callout = null;
-        state.nextCalloutAt = state.t + range(state, ...CALLOUT.gap);
-      }
-    } else if (!live) {
-      // Dropped off in the middle of your own answer.
-      addSuspicion(state, SUSPICION.brokeOff);
-      log(state, `${me.name} cut out mid-sentence. Everyone noticed.`);
-      state.callout = null;
-      state.nextCalloutAt = state.t + range(state, ...CALLOUT.gap);
-    } else if (callout.holdUntil !== null && state.t >= callout.holdUntil) {
-      addSuspicion(state, -SUSPICION.answered);
-      log(state, 'You said a sentence. Nobody can prove you were not listening.');
-      state.callout = null;
-      state.nextCalloutAt = state.t + range(state, ...CALLOUT.gap);
-    }
-  } else if (state.t >= state.nextCalloutAt) {
-    const others = state.participants.filter((p) => !p.isPlayer);
-    const asker = others.length > 0 ? pick(state, others) : null;
-    if (asker) {
-      state.callout = {
-        askerName: asker.name,
-        question: pick(state, QUESTIONS),
-        deadline: state.t + CALLOUT.window,
-        answeredAt: null,
-        holdUntil: null,
-      };
-      state.speakerId = asker.id;
-      log(state, `${asker.name}: ${me.name}, ${state.callout.question}`, 'chat');
-    }
-  }
-
-  // Sitting there visibly present burns off suspicion; a black tile all
-  // meeting slowly builds it.
-  addSuspicion(state, (live || me.cameraOn ? -SUSPICION.behavingRate : SUSPICION.hidingRate) * dt);
+  if (me.cameraOn) addSuspicion(state, -SUSPICION.behavingRate * dt);
 
   if (state.suspicion >= SUSPICION.max) {
     state.phase = 'over';
@@ -428,7 +412,7 @@ function resolveImpact(state: GameState, projectile: Projectile): void {
       bornAt: state.t,
     });
     mark(state, projectile.pos, result.points);
-    addSuspicion(state, SUSPICION.perHit);
+    rollNotice(state, projectile.ammo, target);
     log(state, `HIT ${target.name} (${target.title}) +${result.points} — ${result.label}`, 'hit');
 
     if (target.hits >= 3) {
@@ -450,6 +434,8 @@ function resolveImpact(state: GameState, projectile: Projectile): void {
       log(state, 'You hit the slide deck. Nobody was going to read it anyway.', 'hit');
     }
   }
+
+  rollNotice(state, projectile.ammo, null);
 
   // Missed everyone: it lands on the wall behind the call and fades.
   state.splats.push({
@@ -512,10 +498,7 @@ export function step(state: GameState, dt: number): void {
 }
 
 export function canThrow(state: GameState): boolean {
-  if (state.phase !== 'playing' || state.inventory[state.selectedAmmo] <= 0) return false;
-  const me = player(state);
-  // Both hands are visible the moment the camera is on.
-  return !me.cameraOn && !me.micOn;
+  return state.phase === 'playing' && state.inventory[state.selectedAmmo] > 0;
 }
 
 export function setCamera(state: GameState, on: boolean): void {

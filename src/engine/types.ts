@@ -77,6 +77,8 @@ export interface AmmoDef {
   drag: number;
   /** How much the office draft pushes it sideways. Paper sails, eggs do not. */
   sail: number;
+  /** How hard it is to miss when this lands on somebody. */
+  conspicuous: number;
   radius: number;
   /** Score multiplier on hit. */
   multiplier: number;
@@ -112,18 +114,6 @@ export interface Splat {
   ay: number;
   r: number;
   bornAt: number;
-}
-
-/** Someone has turned to you and is waiting for an answer. */
-export interface Callout {
-  /** Who asked. */
-  askerName: string;
-  question: string;
-  /** Answer before this or it gets awkward. */
-  deadline: number;
-  /** Set once camera and mic are both on — you then have to stay live. */
-  answeredAt: number | null;
-  holdUntil: number | null;
 }
 
 /** Short-lived score popup left where a throw landed. */
@@ -187,8 +177,6 @@ export interface GameState {
   /** The player's own id — they are one of the participants. */
   playerId: string;
   suspicion: number;
-  callout: Callout | null;
-  nextCalloutAt: number;
   endReason: EndReason | null;
   speakerId: string | null;
   nextSpeakerAt: number;

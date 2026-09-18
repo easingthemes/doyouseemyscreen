@@ -1,6 +1,7 @@
 'use client';
 
 import { AMMO, AMMO_ORDER, GRID, HUD, SUSPICION } from '@/engine/constants';
+import { plannedRisk } from '@/engine/game';
 import { windAt } from '@/engine/physics';
 import type { AmmoId, GameState, Participant } from '@/engine/types';
 import type { WebcamStatus } from '@/hooks/useWebcam';
@@ -32,6 +33,19 @@ function WindMeter({ value }: { value: number }) {
       </div>
       <span className="w-12 text-[9px] tabular-nums text-white/50">
         {value >= 0 ? '→' : '←'} {Math.abs(value).toFixed(1)}
+      </span>
+    </div>
+  );
+}
+
+function RiskMeter({ chance }: { chance: number }) {
+  const pct = Math.round(chance * 100);
+  const colour = pct > 55 ? '#e5484d' : pct > 28 ? '#f0b429' : '#4ade80';
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[9px] uppercase tracking-wider text-white/40">Risk</span>
+      <span className="text-[11px] font-medium tabular-nums" style={{ color: colour }}>
+        {pct}%
       </span>
     </div>
   );
@@ -111,6 +125,7 @@ export function Hud({ state, me, onSelect, onCamera, onMic, webcamStatus }: Prop
             {state.hits}/{state.throws} hits · best {state.bestHit}
           </span>
         </div>
+        <RiskMeter chance={plannedRisk(state, state.selectedAmmo)} />
         <SuspicionMeter value={state.suspicion} />
         <WindMeter value={wind} />
       </div>
@@ -154,7 +169,9 @@ export function Hud({ state, me, onSelect, onCamera, onMic, webcamStatus }: Prop
           className="text-[10px]"
           style={{ color: live ? '#e5484d' : 'rgba(255,255,255,0.4)' }}
         >
-          {live ? 'You are visible — hands must stay still' : 'Dark and muted. Throw away.'}
+          {me.cameraOn
+            ? 'On camera — suspicion falls, but they will see you throw'
+            : 'Camera off — throw freely, suspicion stays where it is'}
         </span>
         {(webcamStatus === 'denied' || webcamStatus === 'unsupported') && (
           <span className="text-[9px] text-amber-400/70">

@@ -19,7 +19,6 @@ import { useGame } from '@/hooks/useGame';
 import { useWebcam } from '@/hooks/useWebcam';
 import type { AmmoId, CompanyId, GameState } from '@/engine/types';
 import { recordRound, type Progress } from '@/lib/storage';
-import { Callout } from './Callout';
 import { Hud } from './Hud';
 import { MeetingWindow } from './MeetingWindow';
 import { STAGE_PX_H, STAGE_PX_W, u } from './stage';
@@ -344,24 +343,6 @@ export function Game({
           }}
           webcamStatus={webcamStatus}
         />
-
-        {state.callout && (
-          <>
-            <div
-              className="pointer-events-none absolute z-20 rounded-md"
-              style={{
-                left: u(GRID.x - 0.4),
-                top: u(GRID.y - 0.4),
-                width: u(GRID.w + 0.8),
-                height: u(GRID.h + 0.8),
-                boxShadow: `inset 0 0 0 2px ${
-                  state.callout.answeredAt ? 'rgba(74,222,128,0.5)' : 'rgba(240,180,41,0.75)'
-                }`,
-              }}
-            />
-            <Callout state={state} me={me} />
-          </>
-        )}
 
         {state.phase === 'over' && (
           <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-4 rounded-lg bg-black/90 backdrop-blur-sm">

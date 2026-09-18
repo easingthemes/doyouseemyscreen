@@ -40,39 +40,48 @@ export const DEPTH_SCALE = 0.45;
 export const ROUND_SECONDS = 180;
 
 /**
- * You are in the call too. Throwing is only possible while your camera and mic
- * are off — and a dark tile all meeting is its own kind of suspicious.
+ * You are in the call too, and nothing is forbidden: you can throw at any
+ * moment, camera on or off. The question is only whether anybody works out it
+ * was you. Suspicion never rises on its own — it rises when you are noticed,
+ * and the only way to burn it off is to sit there visibly present, which is
+ * exactly when throwing is most likely to be noticed.
  */
 export const SUSPICION = {
   max: 100,
-  /** Per second, while hiding behind a black tile. */
-  hidingRate: 0.6,
-  /** Per second, while sitting there visibly paying attention. */
+  /** Per second, while your camera is on and you are behaving. */
   behavingRate: 2.5,
-  /** Objects flying across the call get noticed. */
-  perHit: 2.5,
+  /** Added each time somebody works out where that came from. */
+  noticed: 20,
   /** Hitting your own tile while live. Off camera nobody sees it. */
   selfHit: 25,
   selfHitHidden: 6,
-  /** Being asked a question and saying nothing. */
-  ignoredCallout: 18,
-  /** Dropping off in the middle of your own sentence. */
-  brokeOff: 15,
-  /** Answering properly buys back some goodwill. */
-  answered: 12,
+};
+
+/**
+ * Chance that a throw is traced back to you. Every term is something the
+ * player can see on screen before committing: your own camera and mic, the
+ * ammo in hand, who is talking, and how many people are actually watching.
+ */
+export const NOTICE = {
+  /** Something flew across the call and people react. */
+  base: 0.06,
+  /** They can literally watch you wind up. */
+  onCamera: 0.6,
+  /** They can hear it. */
+  onMic: 0.25,
+  /** Interrupting whoever has the floor draws every eye. */
+  speakingTarget: 0.15,
+  /** A tile with the camera on is a person paying attention. */
+  targetVisible: 0.05,
+  /** Each other participant who has their camera on. */
+  perWitness: 0.012,
+  /** A throw that hits nobody leaves much less evidence. */
+  missFactor: 0.35,
+  cap: 0.95,
 };
 
 /** Points lost for hitting yourself. */
 export const SELF_HIT_PENALTY = 150;
-
-export const CALLOUT = {
-  /** Seconds to get camera and mic on once someone asks you something. */
-  window: 5,
-  /** Seconds you have to stay live afterwards before you can hide again. */
-  hold: 3.5,
-  /** Gap between someone turning to you. */
-  gap: [14, 26] as [number, number],
-};
 
 export const AMMO: Record<AmmoId, AmmoDef> = {
   paper: {
@@ -82,6 +91,7 @@ export const AMMO: Record<AmmoId, AmmoDef> = {
     speed: 72,
     drag: 0.0035,
     sail: 1.2,
+    conspicuous: 0.02,
     radius: 0.9,
     multiplier: 1,
     sway: 0.05,
@@ -96,6 +106,7 @@ export const AMMO: Record<AmmoId, AmmoDef> = {
     speed: 76,
     drag: 0.0026,
     sail: 0.95,
+    conspicuous: 0.03,
     radius: 0.75,
     multiplier: 1.3,
     sway: 0.035,
@@ -110,6 +121,7 @@ export const AMMO: Record<AmmoId, AmmoDef> = {
     speed: 80,
     drag: 0.0018,
     sail: 0.6,
+    conspicuous: 0.1,
     radius: 1.1,
     multiplier: 1.7,
     sway: 0.03,
@@ -124,6 +136,7 @@ export const AMMO: Record<AmmoId, AmmoDef> = {
     speed: 86,
     drag: 0.001,
     sail: 0.35,
+    conspicuous: 0.18,
     radius: 1.35,
     multiplier: 2.2,
     sway: 0.018,
@@ -138,6 +151,7 @@ export const AMMO: Record<AmmoId, AmmoDef> = {
     speed: 90,
     drag: 0.0008,
     sail: 0.22,
+    conspicuous: 0.14,
     radius: 1,
     multiplier: 2.6,
     sway: 0.012,

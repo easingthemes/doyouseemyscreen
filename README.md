@@ -9,25 +9,41 @@ talking now stops talking.
 
 ## You are in the call
 
-Your own tile sits in the grid, your name is in the participants list, and the
-rules that apply to everyone else apply to you:
+Your own tile sits in the grid, your name is in the participants list, and
+nothing is ever forbidden: you can throw at any moment, camera on or off. The
+only question is whether anybody works out it was you.
 
-- **Throwing only works while your camera and mic are off.** Go live and your
-  hands are visible; the throw is blocked until you hide again.
-- **A black tile all meeting is its own kind of suspicious.** Suspicion climbs
-  slowly while you hide and falls while you sit there visibly present, so you
-  cannot simply stay dark for three minutes.
-- **People turn to you.** Someone asks you a question by name; camera and mic on
-  inside five seconds, then hold it for a beat. Ignore it and the room notices.
-  Drop off mid-sentence and that is worse.
-- **You can hit yourself.** Your tile is a target like any other: -150 points.
-  Off camera it is merely expensive. If a callout drags you live while your own
-  throw is still in the air, everybody watches it land.
+**Suspicion never rises on its own.** It rises when a throw is noticed, and the
+only way to bring it down is to sit there on camera being visibly present —
+which is precisely when a throw is most likely to be traced straight back to
+you. That is the whole loop: the safe thing to do and the productive thing to
+do are the same lever, pointing opposite ways.
+
+**The odds are on screen before you commit.** The heads-up display shows the
+chance that this throw, landing on somebody, gets noticed. Every term in it is
+something you can already see:
+
+| Factor | Effect |
+|---|---|
+| Base — something flew across the call | 6% |
+| Your camera on — they watch you wind up | +60% |
+| Your mic on — they hear it | +25% |
+| The ammo in your hand | +2% paper … +18% tomato |
+| Each participant with their camera on | +1.2% |
+| Landing on whoever currently holds the floor | +15% |
+| Landing on a tile whose camera is on | +5% |
+| Hitting nobody at all | ×0.35 |
+
+So a paper ball thrown while dark is around 14%, a tomato is 30%, and a tomato
+thrown while you are on camera is 90%. Being noticed costs 20 suspicion; sitting
+on camera burns it off at 2.5 a second.
+
+**You can hit yourself.** Your tile is a target like any other: -150 points. Off
+camera it is merely expensive; on camera everybody watches it land.
 
 Suspicion at 100 and you are removed from the call — the round ends early,
-whatever the clock said. Naive play gets caught around 77 seconds; throwing at
-everything gets caught in under 20. Answering questions and going visibly
-present to cool off survives the full three minutes.
+whatever the clock said. Throwing tomatoes without ever going on camera gets
+caught in roughly 20 seconds. Managing the meter survives the full three minutes.
 
 ### Your real camera
 
@@ -57,8 +73,7 @@ bar and falls back to the placeholder tile. Nothing else changes.
 - Three hits and a participant leaves with "sorry, connection issues". Someone
   else always takes the empty seat.
 - Better ammo drops during the meeting. The round is three minutes.
-- Camera and mic toggle with `C` and `M`; space goes live and dark in one press,
-  which is the one you will actually use.
+- Camera and mic toggle with `C` and `M`; space goes live and dark in one press.
 
 ## Ballistics
 
