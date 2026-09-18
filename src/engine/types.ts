@@ -4,6 +4,13 @@ export interface Vec2 {
   y: number;
 }
 
+/** Projectiles fly *into* the screen: z is depth from the player to the call. */
+export interface Vec3 {
+  x: number;
+  y: number;
+  z: number;
+}
+
 export interface Rect {
   x: number;
   y: number;
@@ -78,10 +85,12 @@ export interface AmmoDef {
 export interface Projectile {
   id: number;
   ammo: AmmoId;
-  pos: Vec2;
-  vel: Vec2;
+  pos: Vec3;
+  vel: Vec3;
   spin: number;
   bornAt: number;
+  /** Recent positions, newest last — drawn as a trail so the arc is readable. */
+  trail: Vec3[];
 }
 
 export interface Splat {
@@ -96,6 +105,15 @@ export interface Splat {
   ax: number;
   ay: number;
   r: number;
+  bornAt: number;
+}
+
+/** Short-lived score popup left where a throw landed. */
+export interface HitMark {
+  id: number;
+  x: number;
+  y: number;
+  points: number;
   bornAt: number;
 }
 
@@ -157,6 +175,7 @@ export interface GameState {
   wind: Wind;
   projectiles: Projectile[];
   splats: Splat[];
+  hitMarks: HitMark[];
   layout: Layout;
 
   inventory: Record<AmmoId, number>;

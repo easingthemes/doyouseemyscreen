@@ -1,7 +1,7 @@
 'use client';
 
 import { memo } from 'react';
-import { GRID, HEADER_H, ROSTER_W, ROSTER_X } from '@/engine/constants';
+import { GRID, HEADER_H, HUD, ROSTER_W, ROSTER_X } from '@/engine/constants';
 import { orderParticipants } from '@/engine/layout';
 import type { FeedEntry, GameState, Participant } from '@/engine/types';
 import { ParticipantTile } from './ParticipantTile';
@@ -89,9 +89,9 @@ const Feed = memo(
         className="absolute overflow-hidden rounded-md border border-edge bg-panel/80 px-2 py-1"
         style={{
           left: u(ROSTER_X),
-          top: u(GRID.y + GRID.h + 1),
+          top: u(HUD.y),
           width: u(ROSTER_W),
-          height: u(7),
+          height: u(HUD.h),
         }}
       >
         <div className="text-[9px] uppercase tracking-wider text-white/40">Chat</div>

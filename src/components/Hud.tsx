@@ -1,6 +1,6 @@
 'use client';
 
-import { AMMO, AMMO_ORDER, GRID } from '@/engine/constants';
+import { AMMO, AMMO_ORDER, GRID, HUD } from '@/engine/constants';
 import { windAt } from '@/engine/physics';
 import type { AmmoId, GameState } from '@/engine/types';
 import { u } from './stage';
@@ -37,8 +37,8 @@ export function Hud({ state, onSelect }: Props) {
 
   return (
     <div
-      className="pointer-events-none absolute flex flex-col justify-between rounded-md border border-edge bg-panel/70 px-3 py-2 backdrop-blur-sm"
-      style={{ left: u(GRID.x), top: u(GRID.y + GRID.h + 1), width: u(GRID.w), height: u(7) }}
+      className="pointer-events-none absolute z-30 flex flex-col justify-between rounded-md border border-edge bg-panel/70 px-3 py-2 backdrop-blur-sm"
+      style={{ left: u(GRID.x), top: u(HUD.y), width: u(GRID.w), height: u(HUD.h) }}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-baseline gap-3">

@@ -3,6 +3,7 @@ import { computeLayout, easeLayout } from './layout';
 import { COMPANIES, makeParticipant } from './people';
 import {
   circleHitsRect,
+  hasLanded,
   isOffStage,
   launchVelocity,
   stepProjectile,
@@ -16,6 +17,7 @@ import type {
   HitResult,
   Participant,
   Projectile,
+  Vec3,
 } from './types';
 
 const BUZZ = [
@@ -38,7 +40,9 @@ const DROP_TABLE: { ammo: AmmoId; weight: number; reason: string }[] = [
   { ammo: 'egg', weight: 0.9, reason: 'Fridge raid: eggs' },
 ];
 
-const GRID_BOTTOM = GRID.y + GRID.h;
+function mark(state: GameState, pos: Vec3, points: number) {
+  state.hitMarks.push({ id: state.nextId++, x: pos.x, y: pos.y, points, bornAt: state.t });
+}
 
 function log(state: GameState, text: string, kind: 'system' | 'chat' | 'hit' = 'system') {
   state.feed.unshift({ id: state.nextId++, t: state.t, text, kind });
@@ -71,6 +75,7 @@ export function createGame(companyId: CompanyId, seed = Date.now()): GameState {
     },
     projectiles: [],
     splats: [],
+    hitMarks: [],
     layout: { tiles: [], presentation: null, stage: { ...GRID } },
     inventory: { paper: Infinity, postit: 4, banana: 0, tomato: 0, egg: 0 },
     selectedAmmo: 'paper',
@@ -184,7 +189,20 @@ function updateMeeting(state: GameState, dt: number) {
 
 function removeParticipant(state: GameState, id: string, message: string) {
   state.participants = state.participants.filter((p) => p.id !== id);
-  state.splats = state.splats.filter((s) => s.targetId !== id);
+  // Detach their splats onto the wall rather than deleting them, so the mess
+  // does not blink out of existence the instant the target rage-quits.
+  const slot = state.layout.tiles.find((tile) => tile.participantId === id);
+  state.splats = state.splats.map((splat) =>
+    splat.targetId === id
+      ? {
+          ...splat,
+          targetId: null,
+          bornAt: state.t,
+          ax: slot ? slot.rect.x + splat.lx * slot.rect.w : splat.ax,
+          ay: slot ? slot.rect.y + splat.ly * slot.rect.h : splat.ay,
+        }
+      : splat,
+  );
   if (state.speakerId === id) state.speakerId = null;
   if (state.sharingId === id) state.sharingId = null;
   log(state, message);
@@ -215,11 +233,17 @@ function scoreHit(state: GameState, target: Participant, ammo: AmmoId, compact: 
   };
 }
 
-function resolveHit(state: GameState, projectile: Projectile): boolean {
+/**
+ * Called once, where the throw reaches the screen. Because the test happens at
+ * the screen plane only, a shot aimed at the top row is no longer intercepted
+ * by the tiles it flew in front of on the way up.
+ */
+function resolveImpact(state: GameState, projectile: Projectile): void {
   const { layout } = state;
+  const def = AMMO[projectile.ammo];
 
   for (const slot of layout.tiles) {
-    if (!circleHitsRect(projectile.pos, AMMO[projectile.ammo].radius, slot.rect)) continue;
+    if (!circleHitsRect(projectile.pos, def.radius, slot.rect)) continue;
     const target = state.participants.find((p) => p.id === slot.participantId);
     if (!target) continue;
 
@@ -237,9 +261,10 @@ function resolveHit(state: GameState, projectile: Projectile): boolean {
       ly: (projectile.pos.y - slot.rect.y) / slot.rect.h,
       ax: projectile.pos.x,
       ay: projectile.pos.y,
-      r: AMMO[projectile.ammo].splatRadius,
+      r: def.splatRadius,
       bornAt: state.t,
     });
+    mark(state, projectile.pos, result.points);
     log(state, `HIT ${target.name} (${target.title}) +${result.points} — ${result.label}`, 'hit');
 
     if (target.hits >= 3) {
@@ -251,29 +276,29 @@ function resolveHit(state: GameState, projectile: Projectile): boolean {
       target.cameraOn = false;
       log(state, `${target.name} turned the camera off.`, 'chat');
     }
-    return true;
+    return;
   }
 
-  if (layout.presentation && circleHitsRect(projectile.pos, AMMO[projectile.ammo].radius, layout.presentation)) {
+  if (layout.presentation && circleHitsRect(projectile.pos, def.radius, layout.presentation)) {
     state.score += 5;
-    state.splats.push({
-      id: state.nextId++,
-      ammo: projectile.ammo,
-      targetId: null,
-      lx: 0,
-      ly: 0,
-      ax: projectile.pos.x,
-      ay: projectile.pos.y,
-      r: AMMO[projectile.ammo].splatRadius,
-      bornAt: state.t,
-    });
+    mark(state, projectile.pos, 5);
     if (chance(state, 0.25)) {
       log(state, 'You hit the slide deck. Nobody was going to read it anyway.', 'hit');
     }
-    return true;
   }
 
-  return false;
+  // Missed everyone: it lands on the wall behind the call and fades.
+  state.splats.push({
+    id: state.nextId++,
+    ammo: projectile.ammo,
+    targetId: null,
+    lx: 0,
+    ly: 0,
+    ax: projectile.pos.x,
+    ay: projectile.pos.y,
+    r: def.splatRadius * 0.8,
+    bornAt: state.t,
+  });
 }
 
 export function step(state: GameState, dt: number): void {
@@ -299,51 +324,43 @@ export function step(state: GameState, dt: number): void {
     let alive = true;
     for (let i = 0; i < substeps && alive; i++) {
       stepProjectile(projectile, sub, windX);
-      if (resolveHit(state, projectile)) {
-        alive = false;
-      } else if (projectile.pos.y > GRID_BOTTOM + 1 && projectile.vel.y > 0) {
-        // Landed on the desk / wall below the meeting window.
-        state.splats.push({
-          id: state.nextId++,
-          ammo: projectile.ammo,
-          targetId: null,
-          lx: 0,
-          ly: 0,
-          ax: projectile.pos.x,
-          ay: projectile.pos.y,
-          r: AMMO[projectile.ammo].splatRadius * 0.7,
-          bornAt: state.t,
-        });
+      if (hasLanded(projectile)) {
+        resolveImpact(state, projectile);
         alive = false;
       } else if (isOffStage(projectile.pos)) {
         alive = false;
       }
     }
-    if (alive) survivors.push(projectile);
+    if (alive) {
+      projectile.trail.push({ ...projectile.pos });
+      if (projectile.trail.length > 16) projectile.trail.shift();
+      survivors.push(projectile);
+    }
   }
   state.projectiles = survivors;
 
-  // Wall splats fade so the desk does not turn into soup.
-  state.splats = state.splats.filter(
-    (s) => s.targetId !== null || state.t - s.bornAt < 6,
-  );
+  // Splats stuck to a person stay for the round; the ones on the wall fade so
+  // the room does not turn into soup.
+  state.splats = state.splats.filter((s) => s.targetId !== null || state.t - s.bornAt < 6);
+  state.hitMarks = state.hitMarks.filter((m) => state.t - m.bornAt < 2.2);
 }
 
 export function canThrow(state: GameState): boolean {
   return state.phase === 'playing' && state.inventory[state.selectedAmmo] > 0;
 }
 
-export function throwAmmo(state: GameState, aim: { x: number; y: number }, power: number): void {
+export function throwAmmo(state: GameState, aim: { x: number; y: number }): void {
   if (!canThrow(state)) return;
   const ammo = state.selectedAmmo;
-  const vel = launchVelocity(aim, power, ammo, nextRandom(state));
+  const vel = launchVelocity(aim, ammo, nextRandom(state), nextRandom(state));
   state.projectiles.push({
     id: state.nextId++,
     ammo,
-    pos: { ...LAUNCH },
+    pos: { x: LAUNCH.x, y: LAUNCH.y, z: 0 },
     vel,
     spin: AMMO[ammo].curve ? (nextRandom(state) < 0.5 ? -1 : 1) : 0,
     bornAt: state.t,
+    trail: [],
   });
   state.throws += 1;
   if (state.inventory[ammo] !== Infinity) {

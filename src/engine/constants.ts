@@ -14,15 +14,28 @@ export const GRID = {
   w: ROSTER_X - 2,
   h: 35,
 };
+/** The band under the meeting window holding the score bar and the chat. */
+export const HUD = {
+  y: GRID.y + GRID.h + 1,
+  h: 7,
+};
+/** Free desk below the HUD — the player's hand lives here. */
+export const DESK_Y = HUD.y + HUD.h + 0.5;
+
 export const TILE_GAP = 0.8;
 export const TILE_ASPECT = 16 / 9;
 
+/**
+ * Depth of the monitor from the player's hand. A throw only counts where it
+ * reaches this plane — it does not collide with tiles it passes in front of.
+ */
+export const SCREEN_Z = 60;
+
 /** Where the player's hand sits. */
 export const LAUNCH: { x: number; y: number } = { x: GRID.x + GRID.w / 2, y: 52.5 };
-export const GRAVITY = 38;
-/** Drag distance that maps to full power. */
-export const MAX_DRAG = 30;
-export const MIN_POWER = 0.18;
+export const GRAVITY = 12;
+/** Depth cue: a projectile shrinks to this fraction as it reaches the screen. */
+export const DEPTH_SCALE = 0.45;
 
 export const ROUND_SECONDS = 180;
 

@@ -9,8 +9,11 @@ talking now stops talking.
 
 ## The loop
 
-- Drag from your hand at the bottom of the screen. Direction aims, distance sets power.
-- A dotted preview shows only the first part of the arc. The rest is on you.
+- Drag anywhere over the meeting window to move the crosshair, release to throw.
+  The roster, chat and score bar are not aim surfaces, so picking ammo never
+  launches anything.
+- A dotted preview shows the first half of the flight, and the projectile leaves
+  a trail. Where it lands after that is on you.
 - Hits score `value × ammo × modifiers`. Hitting someone mid-sentence doubles it,
   hitting a tiny filmstrip tile is worth 1.5×, and a camera-off tile pays half.
 - Three hits and a participant leaves with "sorry, connection issues". Someone
@@ -19,25 +22,43 @@ talking now stops talking.
 
 ## Ballistics
 
-Projectiles are integrated at a fixed 60Hz with gravity, quadratic air
-resistance, an office draft, and spin for the things that curve:
+A throw travels *into* the screen. It carries a depth coordinate `z`, and it is
+tested against the tiles once, where it reaches the plane of the monitor. This
+matters: in a flat side-on model the arc crosses the bottom row on its way up,
+so every shot aimed high is intercepted by whoever sits low. With depth, a shot
+aimed at the top row reaches the top row.
+
+Integration is fixed-step at 60Hz:
 
 ```
 a.x = -drag · |v| · v.x + sail · wind + curve · spin
 a.y =  GRAVITY - drag · |v| · v.y
+a.z = -drag · |v| · v.z
 ```
 
-Wind uses a separate `sail` factor rather than riding on the drag term. That
-keeps the two tunable independently — a paper ball can be shoved a full tile
+Wind uses a separate `sail` factor rather than riding on the drag term, so the
+two stay independently tunable — a paper ball can be shoved half a tile
 sideways by the AC while still having the range to reach the top row.
 
-| Ammo | flies | drifts in a 10 u/s draft | score |
-|---|---|---|---|
-| A4 ball | slow, heavy arc | ~11 units | ×1 |
-| Post-it wad | slightly flatter | ~8 units | ×1.3 |
-| Banana peel | curves sideways | ~5 units | ×1.7 |
-| Tomato | fast, big splat | ~2.8 units | ×2.2 |
-| Egg | fastest, straightest | ~2.7 units | ×2.6 |
+Muzzle speed is fixed per ammo, like the load in a hunting rifle. You aim at a
+spot with the crosshair, and gravity and the draft decide where it really goes,
+so every ammo has a hold-over you learn:
+
+| Ammo | flight | aim above the top row | drift in a 10 u/s draft | score |
+|---|---|---|---|---|
+| A4 ball | 1.07s | 9.2 units | 6.4 units | ×1 |
+| Post-it wad | 0.98s | 7.6 units | 4.4 units | ×1.3 |
+| Banana peel | 0.91s | 6.4 units | 2.4 units | ×1.7 |
+| Tomato | 0.82s | 5.2 units | 1.2 units | ×2.2 |
+| Egg | 0.78s | 4.7 units | 0.7 units | ×2.6 |
+
+The grid is 35 units tall, so paper needs most of a tile of hold-over and drifts
+most of a tile in a strong draft, while an egg flies nearly where you point it.
+Better ammo does not just score more — it is what makes the top row, where the
+expensive people sit, reliably reachable.
+
+Flight takes about a second, which is the point: the grid reorders while the
+throw is still in the air.
 
 The draft itself is an AC vent (steady, re-rolls every 9–18s), an oscillating
 desk fan (a sine wave — learn its rhythm) and a gust every time someone opens a

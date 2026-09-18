@@ -1,9 +1,20 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
-import { AMMO, AMMO_ORDER, LAUNCH, STAGE_H, STAGE_W } from '@/engine/constants';
+import {
+  AMMO,
+  AMMO_ORDER,
+  DEPTH_SCALE,
+  DESK_Y,
+  GRID,
+  LAUNCH,
+  ROSTER_X,
+  SCREEN_Z,
+  STAGE_H,
+  STAGE_W,
+} from '@/engine/constants';
 import { canThrow, selectAmmo, throwAmmo } from '@/engine/game';
-import { powerFromDrag, previewPath, windAt } from '@/engine/physics';
+import { previewPath, windAt } from '@/engine/physics';
 import { useGame } from '@/hooks/useGame';
 import type { AmmoId, CompanyId, GameState } from '@/engine/types';
 import { recordRound, type Progress } from '@/lib/storage';
@@ -88,44 +99,87 @@ export function Game({ companyId, seed, onFinished, onExit, onRestart }: Props) 
     }
     ctx.globalAlpha = 1;
 
-    // aim preview — only the first part of the arc, the rest is your problem
+    // Aim preview: the first part of the flight only. The drop and the drift
+    // past that point are the player's problem.
     const aim = aimRef.current;
     if (aim.active && canThrow(state)) {
-      const vector = { x: aim.x - LAUNCH.x, y: aim.y - LAUNCH.y };
-      const power = powerFromDrag(Math.hypot(vector.x, vector.y));
-      const path = previewPath(
-        state.selectedAmmo,
-        vector,
-        power,
-        windAt(state.wind, state.t),
-      );
-      const shown = Math.floor(path.length * 0.4);
-      ctx.fillStyle = 'rgba(255,255,255,0.55)';
-      for (let i = 0; i < shown; i += 3) {
+      const path = previewPath(state.selectedAmmo, aim, windAt(state.wind, state.t));
+      const shown = Math.max(2, Math.floor(path.length * 0.55));
+
+      // Each dot gets its own dark rim: a single underlay stroke turned into a
+      // grey smudge over bright tiles, and the far dots disappeared entirely.
+      for (let i = 0; i < shown; i += 2) {
+        const point = path[i];
+        const fade = 1 - i / shown;
+        const depth = 1 - (1 - DEPTH_SCALE) * (point.z / SCREEN_Z);
+        const r = (2.6 + fade * 2.2) * (0.75 + 0.25 * depth);
+        const x = u(point.x);
+        const y = u(point.y);
+        ctx.fillStyle = `rgba(0,0,0,${0.35 + fade * 0.25})`;
         ctx.beginPath();
-        ctx.arc(u(path[i].x), u(path[i].y), 2, 0, Math.PI * 2);
+        ctx.arc(x, y, r + 1.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = `rgba(255,255,255,${0.5 + fade * 0.45})`;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
         ctx.fill();
       }
-      // power ring at the hand
-      ctx.strokeStyle = `rgba(74,222,128,${0.3 + power * 0.6})`;
-      ctx.lineWidth = 3;
+
+      // Crosshair on the spot being aimed at.
+      const cx = u(aim.x);
+      const cy = u(aim.y);
+      ctx.strokeStyle = 'rgba(74,222,128,0.9)';
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.arc(u(LAUNCH.x), u(LAUNCH.y), 9 + power * 13, 0, Math.PI * 2);
+      ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+      ctx.moveTo(cx - 15, cy);
+      ctx.lineTo(cx - 4, cy);
+      ctx.moveTo(cx + 4, cy);
+      ctx.lineTo(cx + 15, cy);
+      ctx.moveTo(cx, cy - 15);
+      ctx.lineTo(cx, cy - 4);
+      ctx.moveTo(cx, cy + 4);
+      ctx.lineTo(cx, cy + 15);
       ctx.stroke();
     }
 
-    // hand / launcher
-    ctx.fillStyle = 'rgba(255,255,255,0.12)';
-    ctx.beginPath();
-    ctx.arc(u(LAUNCH.x), u(LAUNCH.y), 7, 0, Math.PI * 2);
-    ctx.fill();
+    // score popups from recent landings
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const hit of state.hitMarks) {
+      const age = (state.t - hit.bornAt) / 2.2;
+      const rise = age * 26;
+      ctx.globalAlpha = Math.max(0, 1 - age * age);
+      ctx.font = 'bold 20px ui-sans-serif, system-ui, sans-serif';
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillStyle = hit.points >= 100 ? '#f0b429' : '#e7e9ee';
+      const label = `+${hit.points}`;
+      ctx.strokeText(label, u(hit.x), u(hit.y) - rise);
+      ctx.fillText(label, u(hit.x), u(hit.y) - rise);
+    }
+    ctx.globalAlpha = 1;
 
     // projectiles
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     for (const projectile of state.projectiles) {
       const def = AMMO[projectile.ammo];
-      const size = u(def.radius) * 2.2;
+
+      // Trail behind the projectile, so the arc it is flying is readable.
+      for (let i = 0; i < projectile.trail.length; i++) {
+        const point = projectile.trail[i];
+        const fade = (i + 1) / projectile.trail.length;
+        const depth = 1 - (1 - DEPTH_SCALE) * (point.z / SCREEN_Z);
+        ctx.fillStyle = `rgba(255,255,255,${0.06 + fade * 0.34})`;
+        ctx.beginPath();
+        ctx.arc(u(point.x), u(point.y), (1 + fade * 2.2) * depth, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Shrinking with depth is the only cue that it is travelling away.
+      const depth = 1 - (1 - DEPTH_SCALE) * (projectile.pos.z / SCREEN_Z);
+      const size = u(def.radius) * 2.4 * depth;
       ctx.save();
       ctx.translate(u(projectile.pos.x), u(projectile.pos.y));
       ctx.rotate((state.t - projectile.bornAt) * 9 * (projectile.spin || 1));
@@ -154,11 +208,7 @@ export function Game({ companyId, seed, onFinished, onExit, onRestart }: Props) 
     const aim = aimRef.current;
     if (!aim.active) return;
     aim.active = false;
-    const state = stateRef.current;
-    const vector = { x: aim.x - LAUNCH.x, y: aim.y - LAUNCH.y };
-    const distance = Math.hypot(vector.x, vector.y);
-    if (distance < 2) return;
-    throwAmmo(state, vector, powerFromDrag(distance));
+    throwAmmo(stateRef.current, { x: aim.x, y: aim.y });
     force();
   }, [force, stateRef]);
 
@@ -175,6 +225,29 @@ export function Game({ companyId, seed, onFinished, onExit, onRestart }: Props) 
   }, [force, stateRef]);
 
   const state = stateRef.current;
+
+  // Drags start here only. Once the pointer is captured it may travel anywhere,
+  // so a heavy hold-over above the top row stays reachable.
+  const aimZones = [
+    {
+      key: 'meeting',
+      style: {
+        left: 0,
+        top: 0,
+        width: u(ROSTER_X),
+        height: u(GRID.y + GRID.h),
+      },
+    },
+    {
+      key: 'desk',
+      style: {
+        left: 0,
+        top: u(DESK_Y),
+        width: STAGE_PX_W,
+        height: STAGE_PX_H - u(DESK_Y),
+      },
+    },
+  ];
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#0e0f12]">
@@ -193,25 +266,31 @@ export function Game({ companyId, seed, onFinished, onExit, onRestart }: Props) 
           style={{ width: STAGE_PX_W, height: STAGE_PX_H }}
         />
 
-        {/* input surface */}
-        <div
-          className="absolute inset-0 z-20 cursor-crosshair"
-          onPointerDown={(event) => {
-            (event.target as HTMLElement).setPointerCapture?.(event.pointerId);
-            const point = toStage(event.clientX, event.clientY);
-            aimRef.current = { active: true, x: point.x, y: point.y };
-          }}
-          onPointerMove={(event) => {
-            if (!aimRef.current.active) return;
-            const point = toStage(event.clientX, event.clientY);
-            aimRef.current.x = point.x;
-            aimRef.current.y = point.y;
-          }}
-          onPointerUp={release}
-          onPointerCancel={release}
-        />
+        {/* Aim surfaces: the meeting window and the bare desk around the hand.
+            The roster, chat and score bar are deliberately left out, so
+            clicking an ammo button never starts a throw. */}
+        {aimZones.map((zone) => (
+          <div
+            key={zone.key}
+            className="absolute z-20 cursor-crosshair"
+            style={zone.style}
+            onPointerDown={(event) => {
+              event.currentTarget.setPointerCapture?.(event.pointerId);
+              const point = toStage(event.clientX, event.clientY);
+              aimRef.current = { active: true, x: point.x, y: point.y };
+            }}
+            onPointerMove={(event) => {
+              if (!aimRef.current.active) return;
+              const point = toStage(event.clientX, event.clientY);
+              aimRef.current.x = point.x;
+              aimRef.current.y = point.y;
+            }}
+            onPointerUp={release}
+            onPointerCancel={release}
+          />
+        ))}
 
-        <div className="z-30">
+        <div>
           <Hud
             state={state}
             onSelect={(ammo: AmmoId) => {
