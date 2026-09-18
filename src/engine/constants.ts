@@ -22,6 +22,20 @@ export const HUD = {
 /** Free desk below the HUD — the player's hand lives here. */
 export const DESK_Y = HUD.y + HUD.h + 0.5;
 
+/** Right-hand column: a short roster, and the rest of the height to chat. */
+export const ROSTER = {
+  x: ROSTER_X,
+  y: GRID.y,
+  w: ROSTER_W,
+  h: 19,
+};
+export const CHAT = {
+  x: ROSTER_X,
+  y: GRID.y + 19.8,
+  w: ROSTER_W,
+  h: HUD.y + HUD.h - (GRID.y + 19.8),
+};
+
 export const TILE_GAP = 0.8;
 export const TILE_ASPECT = 16 / 9;
 

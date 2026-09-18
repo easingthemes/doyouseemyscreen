@@ -41,6 +41,17 @@ const BUZZ = [
   'let me share my screen real quick',
 ];
 
+/** People write to you directly. Flavour, and what the mention badge counts. */
+const MENTIONS = [
+  'can you take this one?',
+  'are you seeing the same numbers?',
+  'ping me after this',
+  'did you get a chance to look at the ticket?',
+  'you are closest to this, right?',
+  'quick one for you after the call',
+  'is that still blocked on your side?',
+];
+
 const DROP_TABLE: { ammo: AmmoId; weight: number; reason: string }[] = [
   { ammo: 'postit', weight: 3, reason: 'You found a Post-it block in the drawer' },
   { ammo: 'banana', weight: 2, reason: 'Leftover banana from breakfast' },
@@ -52,9 +63,15 @@ function mark(state: GameState, pos: Vec3, points: number) {
   state.hitMarks.push({ id: state.nextId++, x: pos.x, y: pos.y, points, bornAt: state.t });
 }
 
-function log(state: GameState, text: string, kind: 'system' | 'chat' | 'hit' = 'system') {
-  state.feed.unshift({ id: state.nextId++, t: state.t, text, kind });
-  if (state.feed.length > 40) state.feed.length = 40;
+function log(
+  state: GameState,
+  text: string,
+  kind: 'system' | 'chat' | 'hit' = 'system',
+  mention = false,
+) {
+  state.feed.unshift({ id: state.nextId++, t: state.t, text, kind, mention });
+  // Deep enough to scroll back through a whole meeting.
+  if (state.feed.length > 150) state.feed.length = 150;
 }
 
 export function createGame(
@@ -78,6 +95,7 @@ export function createGame(
     nextSpeakerAt: 1.5,
     nextChurnAt: range({ rngState: seed | 0 }, ...company.rosterChurn),
     nextRefillAt: 0,
+    nextMentionAt: 12,
     sharingId: null,
     nextShareAt: 12,
     wind: {
@@ -198,6 +216,17 @@ function updateMeeting(state: GameState, dt: number) {
       removeParticipant(state, victim.id, `${victim.name} left the meeting.`);
     }
     state.nextChurnAt = state.t + range(state, ...state.company.rosterChurn);
+  }
+
+  // --- somebody writes to you by name -------------------------------------
+  if (state.t >= state.nextMentionAt) {
+    const others = state.participants.filter((p) => !p.isPlayer);
+    if (others.length > 0) {
+      const from = pick(state, others);
+      const me = player(state);
+      log(state, `${from.name}: @${me.name} ${pick(state, MENTIONS)}`, 'chat', true);
+    }
+    state.nextMentionAt = state.t + range(state, 13, 28);
   }
 
   // --- screen sharing -----------------------------------------------------

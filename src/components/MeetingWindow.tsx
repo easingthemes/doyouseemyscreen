@@ -1,9 +1,10 @@
 'use client';
 
 import { memo } from 'react';
-import { GRID, HEADER_H, HUD, ROSTER_W, ROSTER_X } from '@/engine/constants';
+import { GRID, HEADER_H, ROSTER } from '@/engine/constants';
 import { orderParticipants } from '@/engine/layout';
-import type { FeedEntry, GameState, Participant } from '@/engine/types';
+import type { GameState, Participant } from '@/engine/types';
+import { Chat } from './Chat';
 import { ParticipantTile } from './ParticipantTile';
 import { u } from './stage';
 
@@ -45,13 +46,14 @@ const Roster = memo(
   function Roster({ people, speakerId }: { people: Participant[]; speakerId: string | null }) {
     return (
       <div
-        className="absolute overflow-hidden rounded-md border border-edge bg-panel"
-        style={{ left: u(ROSTER_X), top: u(GRID.y), width: u(ROSTER_W), height: u(GRID.h) }}
+        className="absolute flex flex-col overflow-hidden rounded-md border border-edge bg-panel"
+        style={{ left: u(ROSTER.x), top: u(ROSTER.y), width: u(ROSTER.w), height: u(ROSTER.h) }}
       >
         <div className="border-b border-edge px-2 py-1 text-[9px] uppercase tracking-wider text-white/40">
-          Participants
+          Participants <span className="text-white/25">{people.length}</span>
         </div>
-        {people.slice(0, 16).map((person) => (
+        <div className="flex-1 overflow-y-auto overscroll-contain">
+        {people.map((person) => (
           <div
             key={person.id}
             className="flex items-center justify-between gap-1 px-2 py-[3px] text-[9px]"
@@ -73,9 +75,7 @@ const Roster = memo(
             <span className="shrink-0 text-white/35">{person.title}</span>
           </div>
         ))}
-        {people.length > 16 && (
-          <div className="px-2 py-1 text-[9px] text-white/30">+{people.length - 16} more</div>
-        )}
+        </div>
       </div>
     );
   },
@@ -85,43 +85,6 @@ const Roster = memo(
     a.people.every(
       (p, i) => p.id === b.people[i].id && p.hits === b.people[i].hits && p.cameraOn === b.people[i].cameraOn,
     ),
-);
-
-const Feed = memo(
-  function Feed({ entries }: { entries: FeedEntry[] }) {
-    return (
-      <div
-        className="absolute overflow-hidden rounded-md border border-edge bg-panel/80 px-2 py-1"
-        style={{
-          left: u(ROSTER_X),
-          top: u(HUD.y),
-          width: u(ROSTER_W),
-          height: u(HUD.h),
-        }}
-      >
-        <div className="text-[9px] uppercase tracking-wider text-white/40">Chat</div>
-        <div className="mt-0.5 flex flex-col gap-[2px]">
-          {entries.map((entry) => (
-            <div
-              key={entry.id}
-              className="truncate text-[9px] leading-[11px]"
-              style={{
-                color:
-                  entry.kind === 'hit'
-                    ? '#f0b429'
-                    : entry.kind === 'chat'
-                      ? 'rgba(231,233,238,0.7)'
-                      : 'rgba(231,233,238,0.4)',
-              }}
-            >
-              {entry.text}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  },
-  (a, b) => a.entries[0]?.id === b.entries[0]?.id && a.entries.length === b.entries.length,
 );
 
 const Presentation = memo(
@@ -190,7 +153,12 @@ export function MeetingWindow({
       })}
 
       <Roster people={roster} speakerId={state.speakerId} />
-      <Feed entries={state.feed.slice(0, 4)} />
+      <Chat
+        entries={state.feed}
+        newestId={state.feed[0]?.id ?? 0}
+        count={state.feed.length}
+        playerName={byId.get(state.playerId)?.name ?? 'you'}
+      />
     </>
   );
 }

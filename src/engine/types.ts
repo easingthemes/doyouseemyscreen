@@ -157,6 +157,8 @@ export interface FeedEntry {
   t: number;
   text: string;
   kind: 'system' | 'chat' | 'hit';
+  /** Somebody addressed the player by name. */
+  mention?: boolean;
 }
 
 export interface HitResult {
@@ -182,6 +184,7 @@ export interface GameState {
   nextSpeakerAt: number;
   nextChurnAt: number;
   nextRefillAt: number;
+  nextMentionAt: number;
 
   sharingId: string | null;
   nextShareAt: number;

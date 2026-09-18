@@ -151,6 +151,20 @@ land on it.
 The simulation is seeded (mulberry32), so a round replays identically from its
 seed — useful for balancing.
 
+## Chat
+
+The right-hand column is a short participants list over a real chat panel:
+scrollable, with the whole meeting's backlog. It follows the newest line while
+you are at the bottom and parks where you left it the moment you scroll back,
+rather than yanking you around mid-read.
+
+People write to you by name. Those lines are highlighted, and while you are
+scrolled away the header carries a `3 @you` badge with a `7 new · 3 @you` pill
+at the foot that takes you back down and clears both.
+
+Nothing in the chat is a demand — there is no timer on a mention and no penalty
+for ignoring one. It is the room talking, and occasionally talking to you.
+
 ## Avatars
 
 Drop images into `public/avatars/` and they become faces in the call. There is
