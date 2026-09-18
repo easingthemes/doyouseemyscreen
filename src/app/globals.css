@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+body {
+  background: #0e0f12;
+  color: #e7e9ee;
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+/* The stage is 16:9. On a phone held upright it becomes a letterbox strip,
+   so ask for landscape instead of shipping an unplayable board. */
+.rotate-hint {
+  display: none;
+}
+
+@media (orientation: portrait) and (max-width: 900px) {
+  .rotate-hint {
+    display: flex;
+  }
+}
