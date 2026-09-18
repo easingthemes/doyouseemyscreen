@@ -7,6 +7,28 @@ reordering itself while your paper ball is still in the air. Aiming at where
 the CEO *is* misses. You have to aim at where the CEO *will be* once whoever is
 talking now stops talking.
 
+## You are in the call
+
+Your own tile sits in the grid, your name is in the participants list, and the
+rules that apply to everyone else apply to you:
+
+- **Throwing only works while your camera and mic are off.** Go live and your
+  hands are visible; the throw is blocked until you hide again.
+- **A black tile all meeting is its own kind of suspicious.** Suspicion climbs
+  slowly while you hide and falls while you sit there visibly present, so you
+  cannot simply stay dark for three minutes.
+- **People turn to you.** Someone asks you a question by name; camera and mic on
+  inside five seconds, then hold it for a beat. Ignore it and the room notices.
+  Drop off mid-sentence and that is worse.
+- **You can hit yourself.** Your tile is a target like any other: -150 points.
+  Off camera it is merely expensive. If a callout drags you live while your own
+  throw is still in the air, everybody watches it land.
+
+Suspicion at 100 and you are removed from the call — the round ends early,
+whatever the clock said. Naive play gets caught around 77 seconds; throwing at
+everything gets caught in under 20. Answering questions and going visibly
+present to cool off survives the full three minutes.
+
 ## The loop
 
 - Drag anywhere over the meeting window to move the crosshair, release to throw.
@@ -19,6 +41,8 @@ talking now stops talking.
 - Three hits and a participant leaves with "sorry, connection issues". Someone
   else always takes the empty seat.
 - Better ammo drops during the meeting. The round is three minutes.
+- Camera and mic toggle with `C` and `M`; space goes live and dark in one press,
+  which is the one you will actually use.
 
 ## Ballistics
 

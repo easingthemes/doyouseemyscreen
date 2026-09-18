@@ -77,6 +77,35 @@ export const COMPANIES: Record<CompanyId, CompanyPreset> = {
 
 export const COMPANY_LIST = [COMPANIES.startup, COMPANIES.corporate, COMPANIES.agency];
 
+/**
+ * You. Same grid, same participants list, same splat physics as everyone else
+ * — which is exactly why a bad throw can land on your own face.
+ */
+export function makePlayer(
+  state: { rngState: number },
+  company: CompanyPreset,
+  name: string,
+  usedAvatars: Set<string>,
+): Participant {
+  const role =
+    company.roles.find((r) => r.title === 'Developer') ?? company.roles[company.roles.length - 1];
+  return {
+    id: 'player',
+    name,
+    title: role.title,
+    value: role.value,
+    speakiness: 0,
+    cameraOn: false,
+    micOn: false,
+    isPlayer: true,
+    hue: Math.floor(nextRandom(state) * 360),
+    avatar: takeAvatar(state, usedAvatars),
+    joinedAt: -1,
+    lastSpokeAt: -999,
+    hits: 0,
+  };
+}
+
 /** Hand out a face nobody in the call is already wearing, if one is free. */
 function takeAvatar(state: { rngState: number }, used: Set<string>): string | null {
   if (AVATARS.length === 0) return null;
@@ -108,6 +137,8 @@ export function makeParticipant(
     value: role.value,
     speakiness: role.speakiness,
     cameraOn: !chance(state, company.cameraOffChance),
+    micOn: false,
+    isPlayer: false,
     hue: Math.floor(nextRandom(state) * 360),
     avatar: takeAvatar(state, usedAvatars),
     joinedAt: at,

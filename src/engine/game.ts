@@ -1,6 +1,14 @@
-import { AMMO, GRID, LAUNCH, ROUND_SECONDS } from './constants';
+import {
+  AMMO,
+  CALLOUT,
+  GRID,
+  LAUNCH,
+  ROUND_SECONDS,
+  SELF_HIT_PENALTY,
+  SUSPICION,
+} from './constants';
 import { computeLayout, easeLayout } from './layout';
-import { COMPANIES, makeParticipant } from './people';
+import { COMPANIES, makeParticipant, makePlayer } from './people';
 import {
   circleHitsRect,
   hasLanded,
@@ -33,6 +41,22 @@ const BUZZ = [
   'let me share my screen real quick',
 ];
 
+const QUESTIONS = [
+  'what do you think?',
+  'you were closest to this — any update?',
+  'can you walk us through your part?',
+  'do you have numbers on that?',
+  'sorry, you have been quiet — thoughts?',
+  'does that timeline work on your side?',
+];
+
+const ANSWERS = [
+  'yeah, sorry — I think we should circle back on that.',
+  'agreed, I will take that as an action item.',
+  'we are mostly on track, a couple of blockers.',
+  'good question, let me follow up offline.',
+];
+
 const DROP_TABLE: { ammo: AmmoId; weight: number; reason: string }[] = [
   { ammo: 'postit', weight: 3, reason: 'You found a Post-it block in the drawer' },
   { ammo: 'banana', weight: 2, reason: 'Leftover banana from breakfast' },
@@ -49,7 +73,11 @@ function log(state: GameState, text: string, kind: 'system' | 'chat' | 'hit' = '
   if (state.feed.length > 40) state.feed.length = 40;
 }
 
-export function createGame(companyId: CompanyId, seed = Date.now()): GameState {
+export function createGame(
+  companyId: CompanyId,
+  seed = Date.now(),
+  playerName = 'You',
+): GameState {
   const company = COMPANIES[companyId];
   const state: GameState = {
     seed,
@@ -59,6 +87,11 @@ export function createGame(companyId: CompanyId, seed = Date.now()): GameState {
     phase: 'playing',
     company,
     participants: [],
+    playerId: 'player',
+    suspicion: 0,
+    callout: null,
+    nextCalloutAt: 10,
+    endReason: null,
     speakerId: null,
     nextSpeakerAt: 1.5,
     nextChurnAt: range({ rngState: seed | 0 }, ...company.rosterChurn),
@@ -90,6 +123,8 @@ export function createGame(companyId: CompanyId, seed = Date.now()): GameState {
 
   const taken = new Set<string>();
   const faces = new Set<string>();
+  state.participants.push(makePlayer(state, company, playerName, faces));
+  taken.add(playerName);
   for (let i = 0; i < company.startSize; i++) {
     state.participants.push(makeParticipant(state, company, 0, taken, faces));
   }
@@ -97,6 +132,7 @@ export function createGame(companyId: CompanyId, seed = Date.now()): GameState {
   state.wind.fanPhase = range(state, 0, Math.PI * 2);
   state.layout = computeLayout(state.participants, state.speakerId, false);
   log(state, `${company.name}: meeting started. Nobody knows why.`);
+  log(state, 'Camera and mic are off. Keep them off to throw.', 'system');
   return state;
 }
 
@@ -111,8 +147,17 @@ function usedAvatars(state: GameState): Set<string> {
   );
 }
 
+function player(state: GameState): Participant {
+  return state.participants.find((p) => p.isPlayer) as Participant;
+}
+
+function addSuspicion(state: GameState, amount: number) {
+  state.suspicion = Math.max(0, Math.min(SUSPICION.max, state.suspicion + amount));
+}
+
+/** The floor is only handed to you through a callout, never at random. */
 function pickSpeaker(state: GameState): Participant | null {
-  const options = state.participants.filter((p) => p.id !== state.speakerId);
+  const options = state.participants.filter((p) => p.id !== state.speakerId && !p.isPlayer);
   if (options.length === 0) return null;
   return pickWeighted(state, options, (p) => p.speakiness);
 }
@@ -137,7 +182,7 @@ function updateMeeting(state: GameState, dt: number) {
   // Knocked-out participants can drain the call faster than normal churn
   // refills it, so keep a floor: an empty grid is not a game.
   const floor = Math.max(4, state.company.startSize - 2);
-  if (state.participants.length < floor && state.t >= state.nextRefillAt) {
+  if (state.participants.length - 1 < floor && state.t >= state.nextRefillAt) {
     const person = makeParticipant(
       state,
       state.company,
@@ -151,7 +196,7 @@ function updateMeeting(state: GameState, dt: number) {
   }
 
   if (state.t >= state.nextChurnAt) {
-    const count = state.participants.length;
+    const count = state.participants.length - 1;
     const shouldJoin = count < state.company.startSize || (count < state.company.maxSize && chance(state, 0.6));
     if (shouldJoin) {
       const person = makeParticipant(
@@ -166,7 +211,8 @@ function updateMeeting(state: GameState, dt: number) {
       // A door opening is a gust — it drags whatever is in the air sideways.
       state.wind.gust = range(state, -14, 14);
     } else if (count > 3) {
-      const victim = pick(state, state.participants.filter((p) => p.id !== state.speakerId));
+      const leavers = state.participants.filter((p) => p.id !== state.speakerId && !p.isPlayer);
+      const victim = pick(state, leavers);
       removeParticipant(state, victim.id, `${victim.name} left the meeting.`);
     }
     state.nextChurnAt = state.t + range(state, ...state.company.rosterChurn);
@@ -179,7 +225,9 @@ function updateMeeting(state: GameState, dt: number) {
       log(state, 'Screen sharing stopped. Faces are big again.');
       state.nextShareAt = state.t + range(state, 14, 26);
     } else {
-      const presenter = state.participants.find((p) => p.id === state.speakerId) ?? state.participants[0];
+      const presenter =
+        state.participants.find((p) => p.id === state.speakerId && !p.isPlayer) ??
+        state.participants.find((p) => !p.isPlayer);
       if (presenter) {
         state.sharingId = presenter.id;
         log(state, `${presenter.name} is sharing a screen. Do you see my screen?`);
@@ -204,6 +252,73 @@ function updateMeeting(state: GameState, dt: number) {
     state.inventory[drop.ammo] += amount;
     log(state, `${drop.reason} (+${amount} ${AMMO[drop.ammo].label}).`);
     state.nextDropAt = state.t + range(state, 15, 26);
+  }
+}
+
+/**
+ * Somebody turns to you and waits. Get camera and mic on inside the window and
+ * hold it for a beat; ignore it and the room notices. Throwing is impossible
+ * while you are live, so every answer costs you the good part of the meeting.
+ */
+function updateSelf(state: GameState, dt: number) {
+  const me = player(state);
+  const live = me.cameraOn && me.micOn;
+  const callout = state.callout;
+
+  if (callout) {
+    if (callout.answeredAt === null) {
+      if (live) {
+        callout.answeredAt = state.t;
+        callout.holdUntil = state.t + CALLOUT.hold;
+        state.speakerId = me.id;
+        me.lastSpokeAt = state.t;
+        log(state, `${me.name}: ${pick(state, ANSWERS)}`, 'chat');
+      } else if (me.cameraOn && !me.micOn) {
+        // Classic. Costs nothing but the clock keeps running.
+        if (chance(state, dt * 1.5)) log(state, `${callout.askerName}: you are on mute.`, 'chat');
+      }
+      if (state.t >= callout.deadline && callout.answeredAt === null) {
+        addSuspicion(state, SUSPICION.ignoredCallout);
+        log(state, `${callout.askerName}: ...are you there? Let's move on.`, 'chat');
+        state.callout = null;
+        state.nextCalloutAt = state.t + range(state, ...CALLOUT.gap);
+      }
+    } else if (!live) {
+      // Dropped off in the middle of your own answer.
+      addSuspicion(state, SUSPICION.brokeOff);
+      log(state, `${me.name} cut out mid-sentence. Everyone noticed.`);
+      state.callout = null;
+      state.nextCalloutAt = state.t + range(state, ...CALLOUT.gap);
+    } else if (callout.holdUntil !== null && state.t >= callout.holdUntil) {
+      addSuspicion(state, -SUSPICION.answered);
+      log(state, 'You said a sentence. Nobody can prove you were not listening.');
+      state.callout = null;
+      state.nextCalloutAt = state.t + range(state, ...CALLOUT.gap);
+    }
+  } else if (state.t >= state.nextCalloutAt) {
+    const others = state.participants.filter((p) => !p.isPlayer);
+    const asker = others.length > 0 ? pick(state, others) : null;
+    if (asker) {
+      state.callout = {
+        askerName: asker.name,
+        question: pick(state, QUESTIONS),
+        deadline: state.t + CALLOUT.window,
+        answeredAt: null,
+        holdUntil: null,
+      };
+      state.speakerId = asker.id;
+      log(state, `${asker.name}: ${me.name}, ${state.callout.question}`, 'chat');
+    }
+  }
+
+  // Sitting there visibly present burns off suspicion; a black tile all
+  // meeting slowly builds it.
+  addSuspicion(state, (live || me.cameraOn ? -SUSPICION.behavingRate : SUSPICION.hidingRate) * dt);
+
+  if (state.suspicion >= SUSPICION.max) {
+    state.phase = 'over';
+    state.endReason = 'caught';
+    log(state, 'You have been removed from the meeting. HR will follow up.');
   }
 }
 
@@ -267,6 +382,34 @@ function resolveImpact(state: GameState, projectile: Projectile): void {
     const target = state.participants.find((p) => p.id === slot.participantId);
     if (!target) continue;
 
+    if (target.isPlayer) {
+      // You can only throw while dark, so the only way this is seen is if a
+      // callout dragged you live while the throw was still in the air.
+      const seen = target.cameraOn;
+      state.score -= SELF_HIT_PENALTY;
+      addSuspicion(state, seen ? SUSPICION.selfHit : SUSPICION.selfHitHidden);
+      state.splats.push({
+        id: state.nextId++,
+        ammo: projectile.ammo,
+        targetId: target.id,
+        lx: (projectile.pos.x - slot.rect.x) / slot.rect.w,
+        ly: (projectile.pos.y - slot.rect.y) / slot.rect.h,
+        ax: projectile.pos.x,
+        ay: projectile.pos.y,
+        r: def.splatRadius,
+        bornAt: state.t,
+      });
+      mark(state, projectile.pos, -SELF_HIT_PENALTY);
+      log(
+        state,
+        seen
+          ? `You hit yourself, live, in front of everyone. -${SELF_HIT_PENALTY}.`
+          : `You hit your own camera. -${SELF_HIT_PENALTY}. At least it was off.`,
+        'hit',
+      );
+      return;
+    }
+
     const result = scoreHit(state, target, projectile.ammo, slot.compact);
     state.score += result.points;
     state.hits += 1;
@@ -285,6 +428,7 @@ function resolveImpact(state: GameState, projectile: Projectile): void {
       bornAt: state.t,
     });
     mark(state, projectile.pos, result.points);
+    addSuspicion(state, SUSPICION.perHit);
     log(state, `HIT ${target.name} (${target.title}) +${result.points} — ${result.label}`, 'hit');
 
     if (target.hits >= 3) {
@@ -328,10 +472,12 @@ export function step(state: GameState, dt: number): void {
   if (state.t >= state.duration) {
     state.t = state.duration;
     state.phase = 'over';
+    state.endReason = 'time';
     log(state, 'Meeting ended. Somehow it could have been an email.');
   }
 
   updateMeeting(state, dt);
+  updateSelf(state, dt);
   const target = computeLayout(state.participants, state.speakerId, Boolean(state.sharingId));
   state.layout = easeLayout(state.layout, target, dt);
 
@@ -366,7 +512,29 @@ export function step(state: GameState, dt: number): void {
 }
 
 export function canThrow(state: GameState): boolean {
-  return state.phase === 'playing' && state.inventory[state.selectedAmmo] > 0;
+  if (state.phase !== 'playing' || state.inventory[state.selectedAmmo] <= 0) return false;
+  const me = player(state);
+  // Both hands are visible the moment the camera is on.
+  return !me.cameraOn && !me.micOn;
+}
+
+export function setCamera(state: GameState, on: boolean): void {
+  if (state.phase !== 'playing') return;
+  player(state).cameraOn = on;
+}
+
+export function setMic(state: GameState, on: boolean): void {
+  if (state.phase !== 'playing') return;
+  player(state).micOn = on;
+}
+
+export function goLive(state: GameState, on: boolean): void {
+  setCamera(state, on);
+  setMic(state, on);
+}
+
+export function playerOf(state: GameState) {
+  return player(state);
 }
 
 export function throwAmmo(state: GameState, aim: { x: number; y: number }): void {

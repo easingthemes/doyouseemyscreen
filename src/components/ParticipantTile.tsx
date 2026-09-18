@@ -36,8 +36,8 @@ function Tile({ slot, person, speaking, sharing, splats }: Props) {
         width,
         height,
         backgroundColor: person.cameraOn ? `hsl(${person.hue} 28% 22%)` : '#191b20',
-        borderColor: speaking ? '#4ade80' : '#383c46',
-        borderWidth: speaking ? 2 : 1,
+        borderColor: person.isPlayer ? '#f0b429' : speaking ? '#4ade80' : '#383c46',
+        borderWidth: person.isPlayer || speaking ? 2 : 1,
         boxShadow: speaking ? '0 0 18px rgba(74,222,128,0.35)' : 'none',
       }}
     >
@@ -99,6 +99,12 @@ function Tile({ slot, person, speaking, sharing, splats }: Props) {
         </div>
       )}
 
+      {person.isPlayer && (
+        <div className="absolute left-1 top-1 rounded bg-amber-400/90 px-1 text-[8px] font-semibold text-black">
+          you {person.cameraOn ? '· live' : ''}
+        </div>
+      )}
+
       {sharing && (
         <div className="absolute left-1 top-1 rounded bg-emerald-500/80 px-1 text-[8px] font-semibold text-black">
           sharing
@@ -122,6 +128,7 @@ export const ParticipantTile = memo(Tile, (a, b) => {
     a.sharing === b.sharing &&
     a.person.cameraOn === b.person.cameraOn &&
     a.person.avatar === b.person.avatar &&
+    a.person.micOn === b.person.micOn &&
     a.person.hits === b.person.hits &&
     a.splats.length === b.splats.length
   );

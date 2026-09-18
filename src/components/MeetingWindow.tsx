@@ -65,7 +65,10 @@ const Roster = memo(
                 className="h-1.5 w-1.5 shrink-0 rounded-full"
                 style={{ backgroundColor: `hsl(${person.hue} 65% 62%)` }}
               />
-              <span className="truncate text-white/80">{person.name}</span>
+              <span className="truncate" style={{ color: person.isPlayer ? '#f0b429' : 'rgba(231,233,238,0.8)' }}>
+                {person.name}
+                {person.isPlayer ? ' (you)' : ''}
+              </span>
             </span>
             <span className="shrink-0 text-white/35">{person.title}</span>
           </div>
@@ -79,7 +82,9 @@ const Roster = memo(
   (a, b) =>
     a.speakerId === b.speakerId &&
     a.people.length === b.people.length &&
-    a.people.every((p, i) => p.id === b.people[i].id && p.hits === b.people[i].hits),
+    a.people.every(
+      (p, i) => p.id === b.people[i].id && p.hits === b.people[i].hits && p.cameraOn === b.people[i].cameraOn,
+    ),
 );
 
 const Feed = memo(

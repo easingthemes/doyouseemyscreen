@@ -12,12 +12,12 @@ export const GRID = {
   x: 1,
   y: HEADER_H + 0.8,
   w: ROSTER_X - 2,
-  h: 35,
+  h: 32,
 };
 /** The band under the meeting window holding the score bar and the chat. */
 export const HUD = {
   y: GRID.y + GRID.h + 1,
-  h: 7,
+  h: 10,
 };
 /** Free desk below the HUD — the player's hand lives here. */
 export const DESK_Y = HUD.y + HUD.h + 0.5;
@@ -38,6 +38,41 @@ export const GRAVITY = 12;
 export const DEPTH_SCALE = 0.45;
 
 export const ROUND_SECONDS = 180;
+
+/**
+ * You are in the call too. Throwing is only possible while your camera and mic
+ * are off — and a dark tile all meeting is its own kind of suspicious.
+ */
+export const SUSPICION = {
+  max: 100,
+  /** Per second, while hiding behind a black tile. */
+  hidingRate: 0.6,
+  /** Per second, while sitting there visibly paying attention. */
+  behavingRate: 2.5,
+  /** Objects flying across the call get noticed. */
+  perHit: 2.5,
+  /** Hitting your own tile while live. Off camera nobody sees it. */
+  selfHit: 25,
+  selfHitHidden: 6,
+  /** Being asked a question and saying nothing. */
+  ignoredCallout: 18,
+  /** Dropping off in the middle of your own sentence. */
+  brokeOff: 15,
+  /** Answering properly buys back some goodwill. */
+  answered: 12,
+};
+
+/** Points lost for hitting yourself. */
+export const SELF_HIT_PENALTY = 150;
+
+export const CALLOUT = {
+  /** Seconds to get camera and mic on once someone asks you something. */
+  window: 5,
+  /** Seconds you have to stay live afterwards before you can hide again. */
+  hold: 3.5,
+  /** Gap between someone turning to you. */
+  gap: [14, 26] as [number, number],
+};
 
 export const AMMO: Record<AmmoId, AmmoDef> = {
   paper: {

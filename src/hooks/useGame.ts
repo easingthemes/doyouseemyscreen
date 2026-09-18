@@ -9,9 +9,9 @@ const MAX_FRAME = 1 / 20;
  * not move are memoised instead. */
 const UI_INTERVAL = 0;
 
-export function useGame(companyId: CompanyId, seed: number) {
+export function useGame(companyId: CompanyId, seed: number, playerName: string) {
   const stateRef = useRef<GameState>(null as unknown as GameState);
-  if (stateRef.current === null) stateRef.current = createGame(companyId, seed);
+  if (stateRef.current === null) stateRef.current = createGame(companyId, seed, playerName);
 
   const [, force] = useReducer((n: number) => n + 1, 0);
   const frameRef = useRef<((dt: number, state: GameState) => void) | null>(null);
@@ -21,9 +21,9 @@ export function useGame(companyId: CompanyId, seed: number) {
   }, []);
 
   useEffect(() => {
-    stateRef.current = createGame(companyId, seed);
+    stateRef.current = createGame(companyId, seed, playerName);
     force();
-  }, [companyId, seed]);
+  }, [companyId, seed, playerName]);
 
   useEffect(() => {
     let raf = 0;

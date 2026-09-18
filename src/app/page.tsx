@@ -79,6 +79,7 @@ export default function Home() {
         key={`${companyId}-${seed}`}
         companyId={companyId}
         seed={seed}
+        playerName={profile.name}
         onFinished={setProgress}
         onExit={() => setCompanyId(null)}
         onRestart={() => setSeed(Date.now())}

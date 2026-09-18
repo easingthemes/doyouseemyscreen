@@ -52,6 +52,10 @@ export interface Participant {
   value: number;
   speakiness: number;
   cameraOn: boolean;
+  /** Only meaningful for the player — everyone else is assumed muted. */
+  micOn: boolean;
+  /** You. Hittable, and in the participants list like everyone else. */
+  isPlayer: boolean;
   /** Hue used for the placeholder avatar. */
   hue: number;
   /** Filename in public/avatars, or null when there is no image to give. */
@@ -110,6 +114,18 @@ export interface Splat {
   bornAt: number;
 }
 
+/** Someone has turned to you and is waiting for an answer. */
+export interface Callout {
+  /** Who asked. */
+  askerName: string;
+  question: string;
+  /** Answer before this or it gets awkward. */
+  deadline: number;
+  /** Set once camera and mic are both on — you then have to stay live. */
+  answeredAt: number | null;
+  holdUntil: number | null;
+}
+
 /** Short-lived score popup left where a throw landed. */
 export interface HitMark {
   id: number;
@@ -118,6 +134,8 @@ export interface HitMark {
   points: number;
   bornAt: number;
 }
+
+export type EndReason = 'time' | 'caught';
 
 export interface Wind {
   /** Steady draft from the AC vent. */
@@ -166,6 +184,12 @@ export interface GameState {
   company: CompanyPreset;
 
   participants: Participant[];
+  /** The player's own id — they are one of the participants. */
+  playerId: string;
+  suspicion: number;
+  callout: Callout | null;
+  nextCalloutAt: number;
+  endReason: EndReason | null;
   speakerId: string | null;
   nextSpeakerAt: number;
   nextChurnAt: number;

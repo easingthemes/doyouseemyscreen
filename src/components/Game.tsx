@@ -13,11 +13,12 @@ import {
   STAGE_H,
   STAGE_W,
 } from '@/engine/constants';
-import { canThrow, selectAmmo, throwAmmo } from '@/engine/game';
+import { canThrow, goLive, playerOf, selectAmmo, setCamera, setMic, throwAmmo } from '@/engine/game';
 import { previewPath, windAt } from '@/engine/physics';
 import { useGame } from '@/hooks/useGame';
 import type { AmmoId, CompanyId, GameState } from '@/engine/types';
 import { recordRound, type Progress } from '@/lib/storage';
+import { Callout } from './Callout';
 import { Hud } from './Hud';
 import { MeetingWindow } from './MeetingWindow';
 import { STAGE_PX_H, STAGE_PX_W, u } from './stage';
@@ -25,6 +26,7 @@ import { STAGE_PX_H, STAGE_PX_W, u } from './stage';
 interface Props {
   companyId: CompanyId;
   seed: number;
+  playerName: string;
   onFinished: (progress: Progress) => void;
   onExit: () => void;
   onRestart: () => void;
@@ -36,8 +38,8 @@ interface Aim {
   y: number;
 }
 
-export function Game({ companyId, seed, onFinished, onExit, onRestart }: Props) {
-  const { stateRef, onFrame, force } = useGame(companyId, seed);
+export function Game({ companyId, seed, playerName, onFinished, onExit, onRestart }: Props) {
+  const { stateRef, onFrame, force } = useGame(companyId, seed, playerName);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const scaleRef = useRef(1);
@@ -214,17 +216,29 @@ export function Game({ companyId, seed, onFinished, onExit, onRestart }: Props) 
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      const game = stateRef.current;
       const index = Number(event.key) - 1;
       if (index >= 0 && index < AMMO_ORDER.length) {
-        selectAmmo(stateRef.current, AMMO_ORDER[index]);
-        force();
+        selectAmmo(game, AMMO_ORDER[index]);
+      } else if (event.key === 'c' || event.key === 'C') {
+        setCamera(game, !playerOf(game).cameraOn);
+      } else if (event.key === 'm' || event.key === 'M') {
+        setMic(game, !playerOf(game).micOn);
+      } else if (event.key === ' ') {
+        event.preventDefault();
+        const live = playerOf(game).cameraOn && playerOf(game).micOn;
+        goLive(game, !live);
+      } else {
+        return;
       }
+      force();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [force, stateRef]);
 
   const state = stateRef.current;
+  const me = playerOf(state);
 
   // Drags start here only. Once the pointer is captured it may travel anywhere,
   // so a heavy hold-over above the top row stays reachable.
@@ -290,21 +304,54 @@ export function Game({ companyId, seed, onFinished, onExit, onRestart }: Props) 
           />
         ))}
 
-        <div>
-          <Hud
-            state={state}
-            onSelect={(ammo: AmmoId) => {
-              selectAmmo(stateRef.current, ammo);
-              force();
-            }}
-          />
-        </div>
+        <Hud
+          state={state}
+          me={me}
+          onSelect={(ammo: AmmoId) => {
+            selectAmmo(stateRef.current, ammo);
+            force();
+          }}
+          onCamera={(on) => {
+            setCamera(stateRef.current, on);
+            force();
+          }}
+          onMic={(on) => {
+            setMic(stateRef.current, on);
+            force();
+          }}
+        />
+
+        {state.callout && (
+          <>
+            <div
+              className="pointer-events-none absolute z-20 rounded-md"
+              style={{
+                left: u(GRID.x - 0.4),
+                top: u(GRID.y - 0.4),
+                width: u(GRID.w + 0.8),
+                height: u(GRID.h + 0.8),
+                boxShadow: `inset 0 0 0 2px ${
+                  state.callout.answeredAt ? 'rgba(74,222,128,0.5)' : 'rgba(240,180,41,0.75)'
+                }`,
+              }}
+            />
+            <Callout state={state} me={me} />
+          </>
+        )}
 
         {state.phase === 'over' && (
           <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-4 rounded-lg bg-black/90 backdrop-blur-sm">
-            <div className="text-[13px] uppercase tracking-[0.35em] text-white/40">
-              Meeting ended
+            <div
+              className="text-[13px] uppercase tracking-[0.35em]"
+              style={{ color: state.endReason === 'caught' ? '#e5484d' : 'rgba(255,255,255,0.4)' }}
+            >
+              {state.endReason === 'caught' ? 'You were caught' : 'Meeting ended'}
             </div>
+            {state.endReason === 'caught' && (
+              <div className="-mt-2 text-[11px] text-white/45">
+                Removed from the call. HR will follow up.
+              </div>
+            )}
             <div className="text-[56px] font-semibold leading-none tabular-nums">
               {state.score.toLocaleString()}
             </div>

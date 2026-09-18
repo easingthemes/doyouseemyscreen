@@ -1,13 +1,16 @@
 'use client';
 
-import { AMMO, AMMO_ORDER, GRID, HUD } from '@/engine/constants';
+import { AMMO, AMMO_ORDER, GRID, HUD, SUSPICION } from '@/engine/constants';
 import { windAt } from '@/engine/physics';
-import type { AmmoId, GameState } from '@/engine/types';
+import type { AmmoId, GameState, Participant } from '@/engine/types';
 import { u } from './stage';
 
 interface Props {
   state: GameState;
+  me: Participant;
   onSelect: (ammo: AmmoId) => void;
+  onCamera: (on: boolean) => void;
+  onMic: (on: boolean) => void;
 }
 
 function WindMeter({ value }: { value: number }) {
@@ -15,7 +18,7 @@ function WindMeter({ value }: { value: number }) {
   return (
     <div className="flex items-center gap-2">
       <span className="text-[9px] uppercase tracking-wider text-white/40">Air</span>
-      <div className="relative h-1.5 w-24 rounded-full bg-white/10">
+      <div className="relative h-1.5 w-20 rounded-full bg-white/10">
         <div className="absolute left-1/2 top-0 h-full w-px bg-white/30" />
         <div
           className="absolute top-0 h-full rounded-full bg-sky-400"
@@ -25,15 +28,72 @@ function WindMeter({ value }: { value: number }) {
           }}
         />
       </div>
-      <span className="w-14 text-[9px] tabular-nums text-white/50">
+      <span className="w-12 text-[9px] tabular-nums text-white/50">
         {value >= 0 ? '→' : '←'} {Math.abs(value).toFixed(1)}
       </span>
     </div>
   );
 }
 
-export function Hud({ state, onSelect }: Props) {
+function SuspicionMeter({ value }: { value: number }) {
+  const pct = (value / SUSPICION.max) * 100;
+  const colour = pct > 75 ? '#e5484d' : pct > 45 ? '#f0b429' : '#4ade80';
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[9px] uppercase tracking-wider text-white/40">Suspicion</span>
+      <div className="relative h-2 w-32 overflow-hidden rounded-full bg-white/10">
+        <div
+          className="h-full rounded-full transition-[width] duration-150"
+          style={{ width: `${pct}%`, backgroundColor: colour }}
+        />
+      </div>
+      <span className="w-7 text-[9px] tabular-nums" style={{ color: colour }}>
+        {Math.round(value)}
+      </span>
+    </div>
+  );
+}
+
+function Toggle({
+  label,
+  on,
+  danger,
+  onClick,
+  hint,
+}: {
+  label: string;
+  on: boolean;
+  danger?: boolean;
+  onClick: () => void;
+  hint: string;
+}) {
+  return (
+    <button
+      type="button"
+      onPointerDown={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+      className="pointer-events-auto flex items-center gap-1.5 rounded border px-2 py-1 text-[10px]"
+      style={{
+        borderColor: on ? (danger ? '#e5484d' : '#4ade80') : '#383c46',
+        backgroundColor: on ? (danger ? 'rgba(229,72,77,0.15)' : 'rgba(74,222,128,0.12)') : 'rgba(255,255,255,0.02)',
+        color: on ? '#fff' : 'rgba(255,255,255,0.55)',
+      }}
+    >
+      <span
+        className="h-1.5 w-1.5 rounded-full"
+        style={{ backgroundColor: on ? (danger ? '#e5484d' : '#4ade80') : '#555b66' }}
+      />
+      {label} {on ? 'on' : 'off'}
+      <span className="text-white/25">{hint}</span>
+    </button>
+  );
+}
+
+export function Hud({ state, me, onSelect, onCamera, onMic }: Props) {
   const wind = windAt(state.wind, state.t);
+  const live = me.cameraOn || me.micOn;
 
   return (
     <div
@@ -49,6 +109,7 @@ export function Hud({ state, onSelect }: Props) {
             {state.hits}/{state.throws} hits · best {state.bestHit}
           </span>
         </div>
+        <SuspicionMeter value={state.suspicion} />
         <WindMeter value={wind} />
       </div>
 
@@ -82,6 +143,18 @@ export function Hud({ state, onSelect }: Props) {
             </button>
           );
         })}
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Toggle label="Camera" on={me.cameraOn} danger onClick={() => onCamera(!me.cameraOn)} hint="C" />
+        <Toggle label="Mic" on={me.micOn} danger onClick={() => onMic(!me.micOn)} hint="M" />
+        <span
+          className="text-[10px]"
+          style={{ color: live ? '#e5484d' : 'rgba(255,255,255,0.4)' }}
+        >
+          {live ? 'You are visible — hands must stay still' : 'Dark and muted. Throw away.'}
+        </span>
+        <span className="ml-auto text-[9px] text-white/25">space = go live / go dark</span>
       </div>
     </div>
   );
