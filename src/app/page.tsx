@@ -6,13 +6,17 @@ import { COMPANY_LIST } from '@/engine/people';
 import type { CompanyId } from '@/engine/types';
 import {
   clearProfile,
+  DEFAULT_SETTINGS,
   EMPTY_PROGRESS,
   loadProfile,
   loadProgress,
+  loadSettings,
   resetProgress,
   saveProfile,
+  saveSettings,
   type Profile,
   type Progress,
+  type Settings,
 } from '@/lib/storage';
 
 function NameGate({ onDone }: { onDone: (profile: Profile) => void }) {
@@ -60,6 +64,7 @@ export default function Home() {
   const [ready, setReady] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [progress, setProgress] = useState<Progress>(EMPTY_PROGRESS);
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [companyId, setCompanyId] = useState<CompanyId | null>(null);
   const [seed, setSeed] = useState(0);
 
@@ -67,6 +72,7 @@ export default function Home() {
   useEffect(() => {
     setProfile(loadProfile());
     setProgress(loadProgress());
+    setSettings(loadSettings());
     setReady(true);
   }, []);
 
@@ -80,6 +86,7 @@ export default function Home() {
         companyId={companyId}
         seed={seed}
         playerName={profile.name}
+        useRealCamera={settings.useWebcam}
         onFinished={setProgress}
         onExit={() => setCompanyId(null)}
         onRestart={() => setSeed(Date.now())}
@@ -149,6 +156,25 @@ export default function Home() {
           );
         })}
       </div>
+
+      <label className="flex max-w-md cursor-pointer items-start gap-2.5 rounded-lg border border-edge bg-panel/60 px-3 py-2.5">
+        <input
+          type="checkbox"
+          checked={settings.useWebcam}
+          onChange={(event) => {
+            const next = { ...settings, useWebcam: event.target.checked };
+            setSettings(next);
+            saveSettings(next);
+          }}
+          className="mt-0.5 h-3.5 w-3.5 accent-emerald-500"
+        />
+        <span className="text-[11px] leading-relaxed text-white/55">
+          <span className="text-white/80">Use my real camera for my own tile.</span> Your browser
+          will ask for permission when the meeting starts. The picture is shown only on this
+          screen — nothing is recorded, uploaded or sent anywhere, and the camera stops when the
+          round ends. Turning your camera off in-game stops the capture too.
+        </span>
+      </label>
 
       <div className="flex flex-col items-center gap-2">
         <p className="max-w-md text-center text-[11px] leading-relaxed text-white/35">

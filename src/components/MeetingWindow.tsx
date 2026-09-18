@@ -141,7 +141,13 @@ const Presentation = memo(
   (a, b) => a.presenter === b.presenter,
 );
 
-export function MeetingWindow({ state }: { state: GameState }) {
+export function MeetingWindow({
+  state,
+  webcam,
+}: {
+  state: GameState;
+  webcam: MediaStream | null;
+}) {
   const byId = new Map(state.participants.map((p) => [p.id, p]));
   const roster = orderParticipants(state.participants, state.speakerId);
   const presenter = state.sharingId ? (byId.get(state.sharingId)?.name ?? null) : null;
@@ -178,6 +184,7 @@ export function MeetingWindow({ state }: { state: GameState }) {
             speaking={state.speakerId === person.id}
             sharing={state.sharingId === person.id}
             splats={state.splats.filter((s) => s.targetId === person.id)}
+            webcam={person.isPlayer ? webcam : null}
           />
         );
       })}

@@ -29,6 +29,22 @@ whatever the clock said. Naive play gets caught around 77 seconds; throwing at
 everything gets caught in under 20. Answering questions and going visibly
 present to cool off survives the full three minutes.
 
+### Your real camera
+
+Optional, off by default, and asked for on the menu rather than mid-round — a
+permission prompt during a five-second callout is an automatic loss. Tick the
+box and your own tile becomes your actual webcam, mirrored the way every call
+app mirrors self-view.
+
+It is video only: no audio track is ever requested. The stream is rendered into
+a local `<video>` element and nothing is recorded, uploaded or transmitted —
+there is no server in this game to send it to. Turning the camera off in-game
+sets `track.enabled = false`, so capture genuinely stops rather than the picture
+merely being hidden, and the stream is released when the round ends.
+
+If permission is refused, or there is no camera, the game says so in the status
+bar and falls back to the placeholder tile. Nothing else changes.
+
 ## The loop
 
 - Drag anywhere over the meeting window to move the crosshair, release to throw.

@@ -3,6 +3,7 @@
 import { memo } from 'react';
 import { AMMO } from '@/engine/constants';
 import { BASE_PATH } from '@/lib/paths';
+import { SelfVideo } from './SelfVideo';
 import type { Participant, Splat, TileSlot } from '@/engine/types';
 import { u } from './stage';
 
@@ -12,6 +13,8 @@ interface Props {
   speaking: boolean;
   sharing: boolean;
   splats: Splat[];
+  /** Only ever passed for the player's own tile. */
+  webcam?: MediaStream | null;
 }
 
 function initials(name: string) {
@@ -23,7 +26,7 @@ function initials(name: string) {
     .toUpperCase();
 }
 
-function Tile({ slot, person, speaking, sharing, splats }: Props) {
+function Tile({ slot, person, speaking, sharing, splats, webcam }: Props) {
   const { rect } = slot;
   const width = u(rect.w);
   const height = u(rect.h);
@@ -42,7 +45,8 @@ function Tile({ slot, person, speaking, sharing, splats }: Props) {
       }}
     >
       <div className="flex h-full w-full items-center justify-center">
-        {person.cameraOn && person.avatar ? (
+        {webcam && <SelfVideo stream={webcam} visible={person.cameraOn} />}
+        {webcam && person.cameraOn ? null : person.cameraOn && person.avatar ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={`${BASE_PATH}/avatars/${person.avatar}`}
@@ -129,6 +133,7 @@ export const ParticipantTile = memo(Tile, (a, b) => {
     a.person.cameraOn === b.person.cameraOn &&
     a.person.avatar === b.person.avatar &&
     a.person.micOn === b.person.micOn &&
+    a.webcam === b.webcam &&
     a.person.hits === b.person.hits &&
     a.splats.length === b.splats.length
   );

@@ -16,6 +16,7 @@ import {
 import { canThrow, goLive, playerOf, selectAmmo, setCamera, setMic, throwAmmo } from '@/engine/game';
 import { previewPath, windAt } from '@/engine/physics';
 import { useGame } from '@/hooks/useGame';
+import { useWebcam } from '@/hooks/useWebcam';
 import type { AmmoId, CompanyId, GameState } from '@/engine/types';
 import { recordRound, type Progress } from '@/lib/storage';
 import { Callout } from './Callout';
@@ -27,6 +28,7 @@ interface Props {
   companyId: CompanyId;
   seed: number;
   playerName: string;
+  useRealCamera: boolean;
   onFinished: (progress: Progress) => void;
   onExit: () => void;
   onRestart: () => void;
@@ -38,13 +40,23 @@ interface Aim {
   y: number;
 }
 
-export function Game({ companyId, seed, playerName, onFinished, onExit, onRestart }: Props) {
+export function Game({
+  companyId,
+  seed,
+  playerName,
+  useRealCamera,
+  onFinished,
+  onExit,
+  onRestart,
+}: Props) {
   const { stateRef, onFrame, force } = useGame(companyId, seed, playerName);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const scaleRef = useRef(1);
   const aimRef = useRef<Aim>({ active: false, x: LAUNCH.x, y: LAUNCH.y - 20 });
   const resultRef = useRef<{ personalBest: boolean; previousBest: number } | null>(null);
+  const { stream: webcam, status: webcamStatus, streamRef: webcamRef } = useWebcam(useRealCamera);
+  const cameraWasOn = useRef<boolean | null>(null);
 
   // Fit the fixed-size stage into whatever viewport we got.
   useEffect(() => {
@@ -194,6 +206,17 @@ export function Game({ companyId, seed, playerName, onFinished, onExit, onRestar
   useEffect(() => {
     onFrame((_dt, state) => {
       draw(state);
+
+      // Keep the real capture in step with the in-game camera, so "camera off"
+      // actually stops capturing rather than just hiding the picture.
+      const live = state.participants.find((p) => p.isPlayer)?.cameraOn ?? false;
+      if (cameraWasOn.current !== live) {
+        cameraWasOn.current = live;
+        webcamRef.current?.getVideoTracks().forEach((track) => {
+          track.enabled = live;
+        });
+      }
+
       // The round is written to storage exactly once, when the clock runs out.
       if (state.phase === 'over' && resultRef.current === null) {
         const result = recordRound(state);
@@ -204,7 +227,7 @@ export function Game({ companyId, seed, playerName, onFinished, onExit, onRestar
         onFinished(result.progress);
       }
     });
-  }, [draw, onFinished, onFrame]);
+  }, [draw, onFinished, onFrame, webcamRef]);
 
   const release = useCallback(() => {
     const aim = aimRef.current;
@@ -272,7 +295,7 @@ export function Game({ companyId, seed, playerName, onFinished, onExit, onRestar
       >
         <div className="absolute inset-0 rounded-lg border border-edge bg-app" />
 
-        <MeetingWindow state={state} />
+        <MeetingWindow state={state} webcam={webcam} />
 
         <canvas
           ref={canvasRef}
@@ -319,6 +342,7 @@ export function Game({ companyId, seed, playerName, onFinished, onExit, onRestar
             setMic(stateRef.current, on);
             force();
           }}
+          webcamStatus={webcamStatus}
         />
 
         {state.callout && (

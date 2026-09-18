@@ -3,6 +3,7 @@
 import { AMMO, AMMO_ORDER, GRID, HUD, SUSPICION } from '@/engine/constants';
 import { windAt } from '@/engine/physics';
 import type { AmmoId, GameState, Participant } from '@/engine/types';
+import type { WebcamStatus } from '@/hooks/useWebcam';
 import { u } from './stage';
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
   onSelect: (ammo: AmmoId) => void;
   onCamera: (on: boolean) => void;
   onMic: (on: boolean) => void;
+  webcamStatus: WebcamStatus;
 }
 
 function WindMeter({ value }: { value: number }) {
@@ -91,7 +93,7 @@ function Toggle({
   );
 }
 
-export function Hud({ state, me, onSelect, onCamera, onMic }: Props) {
+export function Hud({ state, me, onSelect, onCamera, onMic, webcamStatus }: Props) {
   const wind = windAt(state.wind, state.t);
   const live = me.cameraOn || me.micOn;
 
@@ -154,6 +156,11 @@ export function Hud({ state, me, onSelect, onCamera, onMic }: Props) {
         >
           {live ? 'You are visible — hands must stay still' : 'Dark and muted. Throw away.'}
         </span>
+        {(webcamStatus === 'denied' || webcamStatus === 'unsupported') && (
+          <span className="text-[9px] text-amber-400/70">
+            webcam {webcamStatus === 'denied' ? 'blocked' : 'unavailable'} — using your avatar
+          </span>
+        )}
         <span className="ml-auto text-[9px] text-white/25">space = go live / go dark</span>
       </div>
     </div>

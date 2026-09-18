@@ -9,6 +9,7 @@ import type { CompanyId, GameState } from '@/engine/types';
  */
 const PROFILE_KEY = 'dysms.profile.v1';
 const PROGRESS_KEY = 'dysms.progress.v1';
+const SETTINGS_KEY = 'dysms.settings.v1';
 
 export interface Profile {
   /** A display name, not an identity. Anyone can type anything. */
@@ -57,6 +58,21 @@ function write(key: string, value: unknown): void {
   } catch {
     // Storage full or blocked — the round still counts on screen.
   }
+}
+
+export interface Settings {
+  /** Show the player's real camera in their own tile. Off until asked for. */
+  useWebcam: boolean;
+}
+
+export const DEFAULT_SETTINGS: Settings = { useWebcam: false };
+
+export function loadSettings(): Settings {
+  return read<Settings>(SETTINGS_KEY, DEFAULT_SETTINGS);
+}
+
+export function saveSettings(settings: Settings): void {
+  write(SETTINGS_KEY, settings);
 }
 
 export function loadProfile(): Profile | null {
