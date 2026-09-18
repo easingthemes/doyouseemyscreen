@@ -84,6 +84,8 @@ src/engine/    framework-free simulation — no React, no DOM
   people.ts      company presets and participant generation
 src/components/  rendering only
 src/hooks/       the requestAnimationFrame loop
+src/data/        generated — the baked-in avatar file list
+public/avatars/  drop face images here
 ```
 
 The reorder animation lives in the engine, not in a UI animation library. That
@@ -93,6 +95,23 @@ land on it.
 
 The simulation is seeded (mulberry32), so a round replays identically from its
 seed — useful for balancing.
+
+## Avatars
+
+Drop images into `public/avatars/` and they become faces in the call. There is
+no image for every participant at first, so anyone left over keeps the coloured
+initials placeholder — and a camera-off tile always shows initials, image or
+not. `public/avatars/README.md` covers formats and sizes.
+
+A static export cannot scan a directory at runtime, so the file list is baked in
+at build time by `scripts/generate-avatars.mjs`:
+
+```bash
+npm run avatars   # after adding images, so the dev server sees them
+```
+
+`npm run build` runs it automatically, so committing new images is enough for a
+deploy. Faces are handed out without repeats while the pool lasts.
 
 ## Player name and progress
 

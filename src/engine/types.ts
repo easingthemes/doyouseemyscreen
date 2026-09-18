@@ -54,6 +54,8 @@ export interface Participant {
   cameraOn: boolean;
   /** Hue used for the placeholder avatar. */
   hue: number;
+  /** Filename in public/avatars, or null when there is no image to give. */
+  avatar: string | null;
   joinedAt: number;
   lastSpokeAt: number;
   hits: number;

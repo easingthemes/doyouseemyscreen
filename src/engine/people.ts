@@ -1,4 +1,5 @@
 import type { CompanyId, CompanyPreset, Participant } from './types';
+import { AVATARS } from '../data/avatars';
 import { pick, pickWeighted, nextRandom, chance } from './rng';
 
 const FIRST = [
@@ -76,11 +77,22 @@ export const COMPANIES: Record<CompanyId, CompanyPreset> = {
 
 export const COMPANY_LIST = [COMPANIES.startup, COMPANIES.corporate, COMPANIES.agency];
 
+/** Hand out a face nobody in the call is already wearing, if one is free. */
+function takeAvatar(state: { rngState: number }, used: Set<string>): string | null {
+  if (AVATARS.length === 0) return null;
+  const free = AVATARS.filter((file) => !used.has(file));
+  const pool = free.length > 0 ? free : AVATARS;
+  const chosen = pick(state, pool);
+  used.add(chosen);
+  return chosen;
+}
+
 export function makeParticipant(
   state: { rngState: number },
   company: CompanyPreset,
   at: number,
   taken: Set<string>,
+  usedAvatars: Set<string> = new Set(),
 ): Participant {
   const role = pickWeighted(state, company.roles, (r) => r.weight);
   let name = `${pick(state, FIRST)} ${pick(state, LAST)}`;
@@ -97,6 +109,7 @@ export function makeParticipant(
     speakiness: role.speakiness,
     cameraOn: !chance(state, company.cameraOffChance),
     hue: Math.floor(nextRandom(state) * 360),
+    avatar: takeAvatar(state, usedAvatars),
     joinedAt: at,
     lastSpokeAt: -999,
     hits: 0,

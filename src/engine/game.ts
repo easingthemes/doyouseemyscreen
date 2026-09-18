@@ -89,8 +89,9 @@ export function createGame(companyId: CompanyId, seed = Date.now()): GameState {
   };
 
   const taken = new Set<string>();
+  const faces = new Set<string>();
   for (let i = 0; i < company.startSize; i++) {
-    state.participants.push(makeParticipant(state, company, 0, taken));
+    state.participants.push(makeParticipant(state, company, 0, taken, faces));
   }
   state.wind.base = range(state, -7, 7);
   state.wind.fanPhase = range(state, 0, Math.PI * 2);
@@ -101,6 +102,13 @@ export function createGame(companyId: CompanyId, seed = Date.now()): GameState {
 
 function takenNames(state: GameState): Set<string> {
   return new Set(state.participants.map((p) => p.name));
+}
+
+/** Faces already in the call, so a late joiner does not turn up as a twin. */
+function usedAvatars(state: GameState): Set<string> {
+  return new Set(
+    state.participants.map((p) => p.avatar).filter((file): file is string => file !== null),
+  );
 }
 
 function pickSpeaker(state: GameState): Participant | null {
@@ -130,7 +138,13 @@ function updateMeeting(state: GameState, dt: number) {
   // refills it, so keep a floor: an empty grid is not a game.
   const floor = Math.max(4, state.company.startSize - 2);
   if (state.participants.length < floor && state.t >= state.nextRefillAt) {
-    const person = makeParticipant(state, state.company, state.t, takenNames(state));
+    const person = makeParticipant(
+      state,
+      state.company,
+      state.t,
+      takenNames(state),
+      usedAvatars(state),
+    );
     state.participants.push(person);
     log(state, `${person.name} (${person.title}) joined.`);
     state.nextRefillAt = state.t + range(state, 1.2, 2.6);
@@ -140,7 +154,13 @@ function updateMeeting(state: GameState, dt: number) {
     const count = state.participants.length;
     const shouldJoin = count < state.company.startSize || (count < state.company.maxSize && chance(state, 0.6));
     if (shouldJoin) {
-      const person = makeParticipant(state, state.company, state.t, takenNames(state));
+      const person = makeParticipant(
+        state,
+        state.company,
+        state.t,
+        takenNames(state),
+        usedAvatars(state),
+      );
       state.participants.push(person);
       log(state, `${person.name} (${person.title}) joined.`);
       // A door opening is a gust — it drags whatever is in the air sideways.

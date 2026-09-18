@@ -2,6 +2,7 @@
 
 import { memo } from 'react';
 import { AMMO } from '@/engine/constants';
+import { BASE_PATH } from '@/lib/paths';
 import type { Participant, Splat, TileSlot } from '@/engine/types';
 import { u } from './stage';
 
@@ -41,7 +42,15 @@ function Tile({ slot, person, speaking, sharing, splats }: Props) {
       }}
     >
       <div className="flex h-full w-full items-center justify-center">
-        {person.cameraOn ? (
+        {person.cameraOn && person.avatar ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={`${BASE_PATH}/avatars/${person.avatar}`}
+            alt=""
+            draggable={false}
+            className="h-full w-full object-cover"
+          />
+        ) : person.cameraOn ? (
           <div
             className="flex items-center justify-center rounded-full font-semibold text-black/70"
             style={{
@@ -112,6 +121,7 @@ export const ParticipantTile = memo(Tile, (a, b) => {
     a.speaking === b.speaking &&
     a.sharing === b.sharing &&
     a.person.cameraOn === b.person.cameraOn &&
+    a.person.avatar === b.person.avatar &&
     a.person.hits === b.person.hits &&
     a.splats.length === b.splats.length
   );
