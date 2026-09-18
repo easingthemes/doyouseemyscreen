@@ -2,7 +2,9 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main, claude/clever-rubin-nltdpu]
+    # Pages only accepts deployments from the default branch, so other
+    # branches would build and then be rejected at the deploy gate.
+    branches: [main]
   workflow_dispatch:
 
 permissions:
