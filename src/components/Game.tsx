@@ -6,6 +6,7 @@ import { canThrow, selectAmmo, throwAmmo } from '@/engine/game';
 import { powerFromDrag, previewPath, windAt } from '@/engine/physics';
 import { useGame } from '@/hooks/useGame';
 import type { AmmoId, CompanyId, GameState } from '@/engine/types';
+import { recordRound, type Progress } from '@/lib/storage';
 import { Hud } from './Hud';
 import { MeetingWindow } from './MeetingWindow';
 import { STAGE_PX_H, STAGE_PX_W, u } from './stage';
@@ -13,6 +14,7 @@ import { STAGE_PX_H, STAGE_PX_W, u } from './stage';
 interface Props {
   companyId: CompanyId;
   seed: number;
+  onFinished: (progress: Progress) => void;
   onExit: () => void;
   onRestart: () => void;
 }
@@ -23,12 +25,13 @@ interface Aim {
   y: number;
 }
 
-export function Game({ companyId, seed, onExit, onRestart }: Props) {
+export function Game({ companyId, seed, onFinished, onExit, onRestart }: Props) {
   const { stateRef, onFrame, force } = useGame(companyId, seed);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const scaleRef = useRef(1);
   const aimRef = useRef<Aim>({ active: false, x: LAUNCH.x, y: LAUNCH.y - 20 });
+  const resultRef = useRef<{ personalBest: boolean; previousBest: number } | null>(null);
 
   // Fit the fixed-size stage into whatever viewport we got.
   useEffect(() => {
@@ -133,8 +136,19 @@ export function Game({ companyId, seed, onExit, onRestart }: Props) {
   }, []);
 
   useEffect(() => {
-    onFrame((_dt, state) => draw(state));
-  }, [draw, onFrame]);
+    onFrame((_dt, state) => {
+      draw(state);
+      // The round is written to storage exactly once, when the clock runs out.
+      if (state.phase === 'over' && resultRef.current === null) {
+        const result = recordRound(state);
+        resultRef.current = {
+          personalBest: result.personalBest,
+          previousBest: result.previousBest,
+        };
+        onFinished(result.progress);
+      }
+    });
+  }, [draw, onFinished, onFrame]);
 
   const release = useCallback(() => {
     const aim = aimRef.current;
@@ -208,7 +222,7 @@ export function Game({ companyId, seed, onExit, onRestart }: Props) {
         </div>
 
         {state.phase === 'over' && (
-          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-4 rounded-lg bg-black/80">
+          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-4 rounded-lg bg-black/90 backdrop-blur-sm">
             <div className="text-[13px] uppercase tracking-[0.35em] text-white/40">
               Meeting ended
             </div>
@@ -218,6 +232,20 @@ export function Game({ companyId, seed, onExit, onRestart }: Props) {
             <div className="text-[12px] text-white/55">
               {state.hits} hits from {state.throws} throws · best single hit {state.bestHit}
             </div>
+            {resultRef.current?.personalBest ? (
+              <div className="rounded-full bg-emerald-500/15 px-3 py-1 text-[11px] font-medium text-emerald-300">
+                Personal best
+                {resultRef.current.previousBest > 0
+                  ? ` — beat ${resultRef.current.previousBest.toLocaleString()}`
+                  : ''}
+              </div>
+            ) : (
+              resultRef.current && (
+                <div className="text-[11px] text-white/35">
+                  Your best here: {resultRef.current.previousBest.toLocaleString()}
+                </div>
+              )
+            )}
             <div className="mt-2 flex gap-2">
               <button
                 type="button"

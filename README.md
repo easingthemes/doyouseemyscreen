@@ -73,6 +73,27 @@ land on it.
 The simulation is seeded (mulberry32), so a round replays identically from its
 seed — useful for balancing.
 
+## Player name and progress
+
+There is no backend and no auth. On first load the player types a display name,
+which is kept in `localStorage` together with their progress — rounds played,
+accuracy, best hit, and a best score per company. Anyone can type any name, and
+clearing site data wipes everything.
+
+The stored shapes (`src/lib/storage.ts`) are plain versioned JSON so they can be
+POSTed to a real service later without a migration. Every read and write is
+wrapped in try/catch: private browsing and blocked storage must not break play.
+
+## Hosting
+
+Pushing to the deploy branch publishes to GitHub Pages via
+`.github/workflows/deploy.yml`: build, static export, upload, deploy. The
+workflow sets `NEXT_PUBLIC_BASE_PATH` to the repo name, because Pages serves the
+site from `/<repo>/`, and drops a `.nojekyll` file so `_next/` survives.
+
+One manual step, once: in the repository settings, **Pages → Build and
+deployment → Source → GitHub Actions**.
+
 ## Running it
 
 ```bash
